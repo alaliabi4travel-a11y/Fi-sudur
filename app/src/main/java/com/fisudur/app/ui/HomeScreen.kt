@@ -132,7 +132,7 @@ private fun TodayCard(s: UiState) {
                     when {
                         p.kind == DayKind.OFF -> {
                             Text(reason?.let { "يوم عذر · $it" } ?: "يوم إجازة", style = MaterialTheme.typography.headlineMedium, color = pal.onHero)
-                            Text("ربط ومراجعة فقط", style = MaterialTheme.typography.bodySmall, color = pal.onHeroMuted)
+                            Text("لا حفظ جديد، ويستمر ما قبله", style = MaterialTheme.typography.bodySmall, color = pal.onHeroMuted)
                         }
                         newPages != null -> {
                             Text(
@@ -147,7 +147,7 @@ private fun TodayCard(s: UiState) {
                                 maxLines = 1,
                             )
                             Text(
-                                "${if (newPages.count == 1) "وجه واحد" else "${newPages.count.ar()} أوجه"} · تكرار ${p.repetitions.ar()}",
+                                "${pagesText(newPages.count)} · تكرار ${p.repetitions.ar()} مرة",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = pal.onHeroMuted,
                             )
@@ -345,7 +345,7 @@ private fun DoneCard(s: UiState, a: Actions) {
             Text("أنجزت يومك", style = MaterialTheme.typography.headlineLarge, color = pal.onHero)
             val pages = s.doneToday?.pages
             Text(
-                if (pages != null) "حفظت ${if (pages.from == pages.to) "الوجه" else "الأوجه"} ${pages.label.ar()} من سورة ${pages.surahs}" else "يوم ربط ومراجعة",
+                if (pages != null) "حفظت ${if (pages.from == pages.to) "الوجه" else "الأوجه"} ${pages.label.ar()} من سورة ${pages.surahs}" else "يوم إجازة: تكرار وربط ومراجعة",
                 style = MaterialTheme.typography.bodyLarge,
                 color = pal.onHeroMuted,
                 textAlign = TextAlign.Center,
@@ -417,7 +417,7 @@ private fun TomorrowCard(t: UiState, a: Actions) {
                 }
             }
             Text(
-                "ما تنجزه الآن يُحسب لك غدًا. التكرار بالعداد يبدأ مع يوم الغد.",
+                "ما تنجزه الآن يُحسب لك غدًا. أما التكرار بالعداد فيبدأ مع يوم الغد.",
                 style = MaterialTheme.typography.bodySmall,
                 color = pal.muted,
                 modifier = Modifier.padding(horizontal = 4.dp),
@@ -466,7 +466,7 @@ private fun OffDayToggle(s: UiState, a: Actions) {
             title = { Text("ما العذر؟") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("يكون اليوم ربطًا ومراجعة فقط، بلا حفظ جديد.", style = MaterialTheme.typography.bodyMedium, color = pal.muted)
+                    Text("لا حفظ جديد اليوم، ويستمر تكرار الأمس والربط والمراجعة.", style = MaterialTheme.typography.bodyMedium, color = pal.muted)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         offReasons.forEach { r ->
                             Pill(r, false) {

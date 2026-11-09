@@ -49,7 +49,7 @@ private data class PlanChoice(val amount: Int, val title: String, val reps: Int,
 private val choices = listOf(
     PlanChoice(1, "حفظ وجه", 40, 620),
     PlanChoice(2, "حفظ وجهين", 40, 320),
-    PlanChoice(3, "إتقان ثلاثة أوجه", 30, 218),
+    PlanChoice(3, "حفظ ثلاثة أوجه", 30, 218),
 )
 
 @OptIn(ExperimentalLayoutApi::class)

@@ -74,7 +74,7 @@ fun SettingsScreen(s: UiState, a: Actions) {
         Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        ScreenTitle("الإعدادات", "كل تغيير يُعاد به حساب الخطة فورًا")
+        ScreenTitle("الإعدادات", "أي تغيير هنا يُعيد حساب الخطة فورًا")
         PlanGuide()
 
         Section(Icons.Outlined.MenuBook, "مقدار الحفظ اليومي", "غيّره متى شئت، ويُعاد حساب الربط والمراجعة تلقائيًا.") {
@@ -86,7 +86,7 @@ fun SettingsScreen(s: UiState, a: Actions) {
             )
         }
 
-        Section(Icons.Outlined.Repeat, "عدد التكرار", "الافتراضي ${PlanRules.defaultRepetitions(st.amount).ar()} مرة لهذا المقدار.") {
+        Section(Icons.Outlined.Repeat, "عدد مرات التكرار", "الافتراضي ${PlanRules.defaultRepetitions(st.amount).ar()} مرة لهذا المقدار.") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("تلقائي", style = MaterialTheme.typography.bodyLarge, color = pal.ink, modifier = Modifier.weight(1f))
                 Switch(
@@ -145,7 +145,7 @@ fun SettingsScreen(s: UiState, a: Actions) {
             }
         }
 
-        Section(Icons.Outlined.CalendarMonth, "أيام الإجازة الأسبوعية", "ربط ومراجعة فقط، بلا حفظ جديد.") {
+        Section(Icons.Outlined.CalendarMonth, "أيام الإجازة الأسبوعية", "لا حفظ جديد فيها، ويستمر تكرار الأمس والربط والمراجعة.") {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Fmt.weekOrder.forEach { d ->
                     Pill(Fmt.day(d), d in st.offWeekdays) {
@@ -182,7 +182,7 @@ fun SettingsScreen(s: UiState, a: Actions) {
         Section(
             Icons.Outlined.Backup,
             "النسخ الاحتياطي",
-            "يحفظ التطبيق نسخة كل يوم داخل الهاتف${s.lastAutoBackup?.let { "، آخرها ${it.ar()}" } ?: ""}. واحفظ ملفًا خارجه (Drive أو رسالة) لتنقل سجلك إلى هاتف آخر.",
+            "يحفظ التطبيق نسخة كل يوم داخل الهاتف${s.lastAutoBackup?.let { "، آخرها ${it.ar()}" } ?: ""}. واحفظ ملفًا خارجه (Google Drive أو رسالة) لتنقل سجلك إلى هاتف آخر.",
         ) {
             OutlineAction("حفظ نسخة في ملف") { exportFile.launch("fi-sudur-${java.time.LocalDate.now()}.json") }
             OutlineAction("استعادة من ملف") { importFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }

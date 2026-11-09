@@ -60,6 +60,21 @@ fun String.ar(): String = buildString(length) {
 
 fun Int.ar(): String = toString().ar()
 
+/** Counted nouns read correctly in Arabic: وجه واحد، وجهان، ٣ أوجه، ٢٠ وجهًا. */
+fun pagesText(n: Int): String = when {
+    n == 1 -> "وجه واحد"
+    n == 2 -> "وجهان"
+    n in 3..10 -> "${n.ar()} أوجه"
+    else -> "${n.ar()} وجهًا"
+}
+
+fun daysText(n: Long): String = when {
+    n == 1L -> "يوم واحد"
+    n == 2L -> "يومان"
+    n in 3L..10L -> "${n.toString().ar()} أيام"
+    else -> "${n.toString().ar()} يومًا"
+}
+
 fun stepIcon(kind: StepKind): ImageVector = when (kind) {
     StepKind.YESTERDAY -> Icons.Outlined.History
     StepKind.LISTEN -> Icons.Outlined.Headphones

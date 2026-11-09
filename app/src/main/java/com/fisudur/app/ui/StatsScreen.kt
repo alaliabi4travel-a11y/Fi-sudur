@@ -57,10 +57,10 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
                 Column(Modifier.weight(1f)) {
                     Text("المحفوظ", style = MaterialTheme.typography.labelLarge, color = pal.gold)
                     Text(st.pagesMemorized.ar(), style = MaterialTheme.typography.displayLarge, color = pal.onHero)
-                    Text("وجهًا من ٦٠٤", style = MaterialTheme.typography.bodyLarge, color = pal.onHeroMuted)
+                    Text("من ٦٠٤ في المصحف", style = MaterialTheme.typography.bodyLarge, color = pal.onHeroMuted)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "الجزء ${st.currentJuz.ar()} · المتبقي ${st.pagesRemaining.ar()} وجهًا",
+                        "الجزء ${st.currentJuz.ar()} · بقي ${pagesText(st.pagesRemaining)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = pal.onHeroMuted,
                     )
@@ -92,7 +92,7 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
                     )
                     if (f != null) {
                         Text(
-                            "بعد ${st.daysToFinish.toString().ar()} يومًا، بمقدار ${amountLabel(s.settings.amount)} يوميًا",
+                            "بعد ${daysText(st.daysToFinish ?: 0L)}، بمقدار ${amountLabel(s.settings.amount)} يوميًا",
                             style = MaterialTheme.typography.bodySmall,
                             color = pal.muted,
                         )
@@ -130,10 +130,10 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
                     Text("الاستمرار الحالي", style = MaterialTheme.typography.labelMedium, color = pal.muted)
-                    Text("${st.currentStreak.ar()} يومًا", style = MaterialTheme.typography.headlineMedium, color = pal.ink)
+                    Text(daysText(st.currentStreak.toLong()), style = MaterialTheme.typography.headlineMedium, color = pal.ink)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("الأطول", style = MaterialTheme.typography.labelMedium, color = pal.muted)
+                    Text("أطول استمرار", style = MaterialTheme.typography.labelMedium, color = pal.muted)
                     Text(st.longestStreak.ar(), style = MaterialTheme.typography.titleLarge, color = pal.gold)
                 }
             }
@@ -145,7 +145,7 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
             Spacer(Modifier.height(14.dp))
             Legend()
             Spacer(Modifier.height(8.dp))
-            Text("اضغط يوم تفريط لتسجيله إن كنت أنجزته أو كان لك عذر.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
+            Text("اضغط يوم التفريط لتسجيله إن كنت حفظت فيه أو كان لك عذر.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
         }
         Spacer(Modifier.height(12.dp))
     }
@@ -158,7 +158,7 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
             text = {
                 Text(
                     if (memoOk) "هذا اليوم انتهى دون تسجيل. هل حفظت فيه، أم كان لك عذر؟"
-                    else "هذا اليوم انتهى دون تسجيل. بعده أيام مسجّلة، فيُحتسب عذرًا فقط حتى لا تتغير صفحاتها. ما العذر؟",
+                    else "هذا اليوم انتهى دون تسجيل. بعده أيام مسجّلة، فيُحتسب عذرًا فقط حتى لا تتغير أوجهها. ما العذر؟",
                 )
             },
             confirmButton = {

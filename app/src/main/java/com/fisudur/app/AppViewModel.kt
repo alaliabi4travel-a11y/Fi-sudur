@@ -206,7 +206,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         history = (history + entry).sortedBy { it.date }
         store.saveHistory(history)
         changed()
-        toast(if (entry.kind == DayKind.MEMO) "سُجّل يوم حفظ" else "سُجّل يوم عذر: ${reason ?: ""}")
+        toast(if (entry.kind == DayKind.MEMO) "سُجّل يوم حفظ" else if (reason != null) "سُجّل يوم عذر: $reason" else "سُجّل يوم عذر")
     }
 
     override fun exportTo(uri: Uri) {
@@ -285,7 +285,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
                     info != null && info.versionCode > BuildConfig.VERSION_CODE && info.apkUrl.isNotEmpty() ->
                         UpdateState.Available(info)
                     quiet -> UpdateState.Idle
-                    result.isFailure -> UpdateState.Failed("تعذر التحقق. تأكد من الاتصال بالإنترنت.")
+                    result.isFailure -> UpdateState.Failed("تعذّر التحقق. تأكد من الاتصال بالإنترنت.")
                     else -> UpdateState.UpToDate
                 },
             )
