@@ -1,6 +1,11 @@
 package com.fisudur.app
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -54,6 +59,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        askForNotifications()
         setContent {
             AppTheme {
                 val s by vm.state.collectAsState()
@@ -61,6 +67,25 @@ class MainActivity : ComponentActivity() {
                 AppRoot(s, vm, tab) { tab = it }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        vm.setForeground(true)
+    }
+
+    override fun onStop() {
+        vm.setForeground(false)
+        super.onStop()
+    }
+
+    private val notifyPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
+
+    /** Reminders need this on Android 13 and later; asked once, Android remembers the answer. */
+    private fun askForNotifications() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) notifyPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 }
 
@@ -102,7 +127,7 @@ fun AppRoot(s: UiState, a: Actions, tab: Int, onTab: (Int) -> Unit) {
                 when (tab) {
                     0 -> HomeScreen(s, a, openCounter = { onTab(1) })
                     1 -> CounterScreen(s, a)
-                    2 -> StatsScreen(s)
+                    2 -> StatsScreen(s, a)
                     else -> SettingsScreen(s, a)
                 }
             }

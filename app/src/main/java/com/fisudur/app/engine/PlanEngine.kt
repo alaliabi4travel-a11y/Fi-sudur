@@ -79,7 +79,17 @@ class PlanEngine(
     private val startPage: Int = 1,
     private val totalPages: Int = QuranData.TOTAL_PAGES,
 ) {
-    fun today(history: List<DayEntry>, amount: Int, repetitions: Int, todayKind: DayKind): TodayPlan {
+    /**
+     * [today] is the plan date. On an off day it decides whether yesterday was a memorizing day,
+     * in which case yesterday's pages are still repeated five times.
+     */
+    fun today(
+        history: List<DayEntry>,
+        amount: Int,
+        repetitions: Int,
+        todayKind: DayKind,
+        today: java.time.LocalDate? = null,
+    ): TodayPlan {
         val memoDays = history.filter { it.kind == DayKind.MEMO }
         // cumEnd[i] = last page memorized after i plan days (cumEnd[0] = page before start).
         val cumEnd = IntArray(memoDays.size + 1)
@@ -98,12 +108,18 @@ class PlanEngine(
             PageRange(memorized + 1, minOf(totalPages, memorized + amount))
         } else null
 
-        val yesterday = memoDays.lastOrNull()?.pages?.takeIf { todayKind == DayKind.MEMO }
+        val lastEntry = history.maxByOrNull { it.date }
+        val yesterday = if (todayKind == DayKind.MEMO) {
+            memoDays.lastOrNull()?.pages
+        } else {
+            // Off day: repeat yesterday only when yesterday itself was a memorizing day.
+            lastEntry?.takeIf { it.kind == DayKind.MEMO && (today == null || it.date == today.minusDays(1)) }?.pages
+        }
 
         val round = PlanRules.roundOf(day)
         val linkingStart = if (round == 0) startPage else endAfter(PlanRules.ROUND_LENGTH * round) + 1
-        // On an off day there is no "yesterday's repetition", so those pages join linking.
-        val linkingEnd = if (todayKind == DayKind.OFF) endAfter(day - 1) else endAfter(day - 2)
+        // With no yesterday's repetition (an off day after an off day), those pages join linking.
+        val linkingEnd = if (todayKind == DayKind.OFF && yesterday == null) endAfter(day - 1) else endAfter(day - 2)
         val linking = if (linkingEnd >= linkingStart) PageRange(linkingStart, linkingEnd) else null
 
         var review: PageRange? = null

@@ -28,6 +28,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,9 +61,31 @@ fun CounterScreen(s: UiState, a: Actions) {
     val press = remember { MutableInteractionSource() }
     val pressed by press.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.96f else 1f, label = "press")
+    val count1 = {
+        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        if (count + 1 == target) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        a.setCounter(count + 1)
+    }
+
+    // The screen stays on while counting, and either volume key counts one reading.
+    val view = LocalView.current
+    DisposableEffect(Unit) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
+    }
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
 
     Column(
-        Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 8.dp),
+        Modifier.fillMaxSize()
+            .focusRequester(focus)
+            .focusable()
+            .onKeyEvent { e ->
+                val volume = e.key == Key.VolumeUp || e.key == Key.VolumeDown
+                if (volume && e.type == KeyEventType.KeyDown) count1()
+                volume
+            }
+            .padding(horizontal = 18.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text("عدّاد التكرار", style = MaterialTheme.typography.headlineLarge, color = pal.ink, modifier = Modifier.padding(top = 6.dp))
@@ -71,11 +104,7 @@ fun CounterScreen(s: UiState, a: Actions) {
         ) {
             Box(
                 Modifier.size(244.dp).clip(CircleShape).background(pal.hero)
-                    .clickable(interactionSource = press, indication = null) {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        if (count + 1 == target) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        a.setCounter(count + 1)
-                    },
+                    .clickable(interactionSource = press, indication = null) { count1() },
                 contentAlignment = Alignment.Center,
             ) {
                 KhatamPattern(Modifier.fillMaxSize(), color = pal.gold.copy(alpha = .08f), cell = 38.dp)
@@ -91,7 +120,7 @@ fun CounterScreen(s: UiState, a: Actions) {
         }
         Spacer(Modifier.height(18.dp))
         Text(
-            if (done) "أتممت التكرار المطلوب، بارك الله فيك" else "اضغط الدائرة بعد كل قراءة غيبًا",
+            if (done) "أتممت التكرار المطلوب، بارك الله فيك" else "اضغط الدائرة أو زر الصوت بعد كل قراءة غيبًا",
             style = MaterialTheme.typography.bodyLarge,
             color = if (done) pal.done else pal.muted,
         )

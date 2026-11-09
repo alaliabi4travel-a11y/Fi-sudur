@@ -13,7 +13,7 @@ import com.fisudur.app.engine.TodayPlan
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-enum class StepAction { CHECK, COUNTER }
+enum class StepAction { CHECK, COUNTER, TALLY }
 
 enum class StepKind { YESTERDAY, LISTEN, TAFSIR, REPEAT, RECORD, LINK, REVIEW }
 
@@ -39,6 +39,8 @@ data class UiState(
     val doneToday: DayEntry?,
     val stats: Stats,
     val update: UpdateState = UpdateState.Idle,
+    /** When the newest automatic copy inside the phone was taken, if any. */
+    val lastAutoBackup: String? = null,
 ) {
     val needsSetup: Boolean get() = settings.startDate == null
     val clock: DayClock get() = DayClock(settings.dayEnd)
@@ -58,6 +60,17 @@ interface Actions {
     fun resetAll() {}
     fun checkUpdate() {}
     fun getUpdate() {}
+    /** One more reading of a step read several times; checks it at its target. */
+    fun tally(stepId: String) {}
+    fun exportTo(uri: android.net.Uri) {}
+    fun importFrom(uri: android.net.Uri) {}
+    fun restoreAutoBackup() {}
+    /** Records a past day that was never finished. */
+    fun backfill(date: LocalDate, kind: DayKind) {}
+    /** Whether a past day can still be recorded as a memorizing day (only the newest gap can). */
+    fun canBackfillMemo(s: UiState, date: LocalDate): Boolean =
+        date.isBefore(s.planDate) && s.history.none { !it.date.isBefore(date) }
+    fun setForeground(on: Boolean) {}
 }
 
 object NoActions : Actions
@@ -73,7 +86,7 @@ fun buildUiState(now: LocalDateTime, settings: Settings, history: List<DayEntry>
     val engine = PlanEngine(settings.startPage)
     // Once today is finished, keep showing the plan as it was for today.
     val past = history.filter { it.date.isBefore(date) }
-    val plan = engine.today(past, settings.amount, reps, done?.kind ?: kind)
+    val plan = engine.today(past, settings.amount, reps, done?.kind ?: kind, date)
     val stats = StatsCalculator.compute(
         history, settings.startDate ?: date, settings.startPage, date, settings.amount, settings.offWeekdays,
     )
@@ -81,18 +94,20 @@ fun buildUiState(now: LocalDateTime, settings: Settings, history: List<DayEntry>
 }
 
 private fun stepsFor(plan: TodayPlan): List<Step> {
+    // Order as practised: linking, yesterday, then the new pages (tafsir, listening,
+    // recording to confirm, repetition to consolidate), and review last when there is one.
     val list = mutableListOf<Step>()
-    plan.yesterday?.let {
-        list += Step("yesterday", StepKind.YESTERDAY, "تكرار الأمس", it.label, it.surahs, "${PlanRules.YESTERDAY_REPS} مرات غيبًا")
-    }
-    plan.newPages?.let {
-        list += Step("listen", StepKind.LISTEN, "استمع إلى القارئ", it.label, it.surahs, "${PlanRules.LISTEN_REPS} مرات مع النظر في المصحف")
-        list += Step("tafsir", StepKind.TAFSIR, "اقرأ التفسير", it.label, it.surahs, "مرة واحدة · الميسّر أو المختصر")
-        list += Step("repeat", StepKind.REPEAT, "كرّر حتى تحفظ", it.label, it.surahs, "${plan.repetitions} مرة", StepAction.COUNTER, plan.repetitions)
-        list += Step("record", StepKind.RECORD, "سجّل غيبًا", it.label, it.surahs, "${PlanRules.RECORD_REPS} مرات متتالية بلا خطأ")
-    }
     plan.linking?.let {
         list += Step("link", StepKind.LINK, "الربط", it.label, it.surahs, "مرة واحدة غيبًا · ${it.count} وجهًا")
+    }
+    plan.yesterday?.let {
+        list += Step("yesterday", StepKind.YESTERDAY, "تكرار الأمس", it.label, it.surahs, "${PlanRules.YESTERDAY_REPS} مرات غيبًا", StepAction.TALLY, PlanRules.YESTERDAY_REPS)
+    }
+    plan.newPages?.let {
+        list += Step("tafsir", StepKind.TAFSIR, "اقرأ التفسير", it.label, it.surahs, "مرة واحدة · الميسّر أو المختصر")
+        list += Step("listen", StepKind.LISTEN, "استمع إلى القارئ", it.label, it.surahs, "${PlanRules.LISTEN_REPS} مرات مع النظر في المصحف", StepAction.TALLY, PlanRules.LISTEN_REPS)
+        list += Step("record", StepKind.RECORD, "سجّل غيبًا لتأكيد الحفظ", it.label, it.surahs, "${PlanRules.RECORD_REPS} مرات متتالية بلا خطأ")
+        list += Step("repeat", StepKind.REPEAT, "كرّر لتثبيت الحفظ", it.label, it.surahs, "${plan.repetitions} مرة", StepAction.COUNTER, plan.repetitions)
     }
     plan.review?.let {
         list += Step("review", StepKind.REVIEW, "المراجعة", it.label, it.surahs, "مرة واحدة غيبًا · ${it.count} وجهًا")

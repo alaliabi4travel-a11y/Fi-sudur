@@ -1,6 +1,10 @@
 package com.fisudur.app.ui
 
 import android.app.TimePickerDialog
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.outlined.Backup
+import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -58,6 +62,13 @@ fun SettingsScreen(s: UiState, a: Actions) {
     val pal = LocalPalette.current
     val context = LocalContext.current
     var confirmReset by remember { mutableStateOf(false) }
+    var pendingStart by remember { mutableStateOf<Int?>(null) }
+    val exportFile = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let(a::exportTo)
+    }
+    val importFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let(a::importFrom)
+    }
 
     Column(
         Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
@@ -137,10 +148,46 @@ fun SettingsScreen(s: UiState, a: Actions) {
                 )
                 Spacer(Modifier.width(8.dp))
                 TextButton(onClick = {
-                    page.toIntOrNull()?.takeIf { it in 1..604 }?.let { a.saveSettings(st.copy(startPage = it)) }
+                    page.toIntOrNull()?.takeIf { it in 1..604 && it != st.startPage }?.let { pendingStart = it }
                 }) { Text("حفظ") }
             }
             Text("غيّره فقط إن كنت تحفظ من موضع غير أول المصحف.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
+        }
+
+        Section(Icons.Outlined.NotificationsActive, "التذكير", "لا يظهر إذا أنهيت يومك.") {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("تذكير يومي", style = MaterialTheme.typography.bodyLarge, color = pal.ink, modifier = Modifier.weight(1f))
+                Switch(
+                    checked = st.reminderMinutes != null,
+                    onCheckedChange = { on -> a.saveSettings(st.copy(reminderMinutes = if (on) 20 * 60 else null)) },
+                )
+            }
+            st.reminderMinutes?.let { m ->
+                Pill("الساعة ${Fmt.time(LocalTime.of(m / 60, m % 60)).ar()}", true) {
+                    TimePickerDialog(context, { _, h, min ->
+                        a.saveSettings(st.copy(reminderMinutes = h * 60 + min))
+                    }, m / 60, m % 60, false).show()
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("قبل نهاية اليوم بساعة", style = MaterialTheme.typography.bodyLarge, color = pal.ink)
+                    Text("إن لم تُنهِ وردك بعد", style = MaterialTheme.typography.bodySmall, color = pal.muted)
+                }
+                Switch(checked = st.lateReminder, onCheckedChange = { a.saveSettings(st.copy(lateReminder = it)) })
+            }
+        }
+
+        Section(
+            Icons.Outlined.Backup,
+            "النسخ الاحتياطي",
+            "يحفظ التطبيق نسخة كل يوم داخل الهاتف${s.lastAutoBackup?.let { "، آخرها ${it.ar()}" } ?: ""}. واحفظ ملفًا خارجه (Drive أو رسالة) لتنقل سجلك إلى هاتف آخر.",
+        ) {
+            OutlineAction("حفظ نسخة في ملف") { exportFile.launch("fi-sudur-${java.time.LocalDate.now()}.json") }
+            OutlineAction("استعادة من ملف") { importFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
+            if (s.lastAutoBackup != null) {
+                OutlineAction("استعادة آخر نسخة تلقائية") { a.restoreAutoBackup() }
+            }
         }
 
         Section(Icons.Outlined.SystemUpdate, "التحديثات", "الإصدار ${BuildConfig.VERSION_NAME.ar()}") {
@@ -163,11 +210,21 @@ fun SettingsScreen(s: UiState, a: Actions) {
         Spacer(Modifier.height(12.dp))
     }
 
+    pendingStart?.let { p ->
+        AlertDialog(
+            onDismissRequest = { pendingStart = null },
+            title = { Text("تغيير وجه البداية؟") },
+            text = { Text("ستتغير أرقام الأوجه في كل الأيام القادمة، ويُعاد حساب الربط والمراجعة من الوجه ${p.ar()}. سجلّك الماضي يبقى كما هو.") },
+            confirmButton = { TextButton(onClick = { a.saveSettings(st.copy(startPage = p)); pendingStart = null }) { Text("غيّر") } },
+            dismissButton = { TextButton(onClick = { pendingStart = null }) { Text("إلغاء") } },
+        )
+    }
+
     if (confirmReset) {
         AlertDialog(
             onDismissRequest = { confirmReset = false },
             title = { Text("حذف السجل؟") },
-            text = { Text("سيُحذف كل ما سجلته من أيام وتبدأ خطة جديدة. التسجيلات الصوتية لا تُحذف.") },
+            text = { Text("سيُحذف كل ما سجلته من أيام وتبدأ خطة جديدة. تُحفظ نسخة تلقائية قبل الحذف، فيمكنك استعادتها من «النسخ الاحتياطي».") },
             confirmButton = { TextButton(onClick = { confirmReset = false; a.resetAll() }) { Text("حذف") } },
             dismissButton = { TextButton(onClick = { confirmReset = false }) { Text("إلغاء") } },
         )

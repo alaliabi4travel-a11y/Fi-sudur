@@ -1,6 +1,15 @@
 package com.fisudur.app.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.fisudur.app.Actions
+import com.fisudur.app.NoActions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,9 +40,10 @@ import com.fisudur.app.engine.DayKind
 import java.time.LocalDate
 
 @Composable
-fun StatsScreen(s: UiState) {
+fun StatsScreen(s: UiState, a: Actions = NoActions) {
     val st = s.stats
     val pal = LocalPalette.current
+    var picked by remember { mutableStateOf<LocalDate?>(null) }
     Column(
         Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -118,11 +128,33 @@ fun StatsScreen(s: UiState) {
 
         SectionTitle("آخر ٢٨ يومًا")
         Panel(Modifier.fillMaxWidth()) {
-            LastDays(s)
+            LastDays(s) { picked = it }
             Spacer(Modifier.height(14.dp))
             Legend()
+            Spacer(Modifier.height(8.dp))
+            Text("اضغط يوم غياب لتسجيله إن كنت أنجزته ونسيت إنهاءه.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
         }
         Spacer(Modifier.height(12.dp))
+    }
+
+    picked?.let { d ->
+        val memoOk = a.canBackfillMemo(s, d)
+        AlertDialog(
+            onDismissRequest = { picked = null },
+            title = { Text("${Fmt.date(d).ar()}") },
+            text = {
+                Text(
+                    if (memoOk) "هذا اليوم انتهى دون تسجيل. كيف تريد أن يُحسب؟"
+                    else "هذا اليوم انتهى دون تسجيل. بعده أيام مسجّلة، فيمكن احتسابه عذرًا فقط حتى لا تتغير صفحاتها.",
+                )
+            },
+            confirmButton = {
+                if (memoOk) TextButton(onClick = { a.backfill(d, DayKind.MEMO); picked = null }) { Text("حفظت فيه") }
+            },
+            dismissButton = {
+                TextButton(onClick = { a.backfill(d, DayKind.OFF); picked = null }) { Text("كان عذرًا") }
+            },
+        )
     }
 }
 
@@ -133,7 +165,7 @@ private fun amountLabel(n: Int) = when (n) {
 }
 
 @Composable
-private fun LastDays(s: UiState) {
+private fun LastDays(s: UiState, onMissed: (LocalDate) -> Unit) {
     val byDate = s.history.associateBy { it.date }
     val start = s.settings.startDate ?: s.planDate
     val days = (27 downTo 0).map { s.planDate.minusDays(it.toLong()) }
@@ -142,8 +174,10 @@ private fun LastDays(s: UiState) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 week.forEach { d ->
                     val (bg, fg) = dayColors(d, byDate[d]?.kind, start, s.planDate)
+                    val missed = byDate[d] == null && !d.isBefore(start) && d.isBefore(s.planDate)
                     Box(
-                        Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(bg),
+                        Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(bg)
+                            .clickable(enabled = missed) { onMissed(d) },
                         contentAlignment = Alignment.Center,
                     ) { Text(d.dayOfMonth.ar(), style = MaterialTheme.typography.labelMedium, color = fg) }
                 }

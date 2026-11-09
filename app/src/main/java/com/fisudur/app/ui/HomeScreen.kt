@@ -221,9 +221,11 @@ private fun Timeline(s: UiState, a: Actions, openCounter: () -> Unit) {
                 first = i == 0,
                 last = i == s.steps.lastIndex,
                 counter = s.progress.counter,
+                tally = s.progress.tallies[step.id] ?: 0,
                 onOpen = {
                     when (step.action) {
                         StepAction.COUNTER -> openCounter()
+                        StepAction.TALLY -> a.tally(step.id)
                         StepAction.CHECK -> a.toggle(step.id)
                     }
                 },
@@ -273,6 +275,7 @@ private fun TimelineRow(
     first: Boolean,
     last: Boolean,
     counter: Int,
+    tally: Int,
     onOpen: () -> Unit,
     onCheck: () -> Unit,
 ) {
@@ -332,7 +335,25 @@ private fun TimelineRow(
                     Text("${counter.ar()} / ${step.target.ar()}", style = MaterialTheme.typography.labelSmall, color = pal.muted)
                 }
             }
-            if (step.action != StepAction.CHECK) {
+            if (step.action == StepAction.TALLY) {
+                // One dot per reading; tap the card after each one.
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        repeat(step.target) { i ->
+                            Box(
+                                Modifier.size(8.dp).clip(CircleShape)
+                                    .background(if (i < tally || checked) pal.gold else pal.line),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "${(if (checked) step.target else tally).ar()} / ${step.target.ar()}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = pal.muted,
+                    )
+                }
+            } else if (step.action != StepAction.CHECK) {
                 Icon(Icons.Outlined.ChevronLeft, null, tint = pal.muted)
             }
         }

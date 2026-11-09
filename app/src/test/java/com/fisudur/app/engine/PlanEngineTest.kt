@@ -80,11 +80,16 @@ class PlanEngineTest {
             history += DayEntry(date, DayKind.MEMO, plan.newPages)
             date = date.plusDays(1)
         }
-        val off = engine.today(history, 2, 40, DayKind.OFF)
+        val off = engine.today(history, 2, 40, DayKind.OFF, date)
         assertEquals(null, off.newPages)
-        assertEquals(null, off.yesterday)
-        assertEquals(80, off.linking?.to) // yesterday's pages join linking
-        val next = engine.today(history + DayEntry(date, DayKind.OFF, null), 2, 40, DayKind.MEMO)
+        assertEquals(PageRange(79, 80), off.yesterday) // yesterday was memorized: still repeated
+        assertEquals(78, off.linking?.to)
+        // A second off day in a row has no yesterday, so those pages join linking.
+        val withOff = history + DayEntry(date, DayKind.OFF, null)
+        val off2 = engine.today(withOff, 2, 40, DayKind.OFF, date.plusDays(1))
+        assertEquals(null, off2.yesterday)
+        assertEquals(80, off2.linking?.to)
+        val next = engine.today(withOff, 2, 40, DayKind.MEMO, date.plusDays(1))
         assertEquals(off.planDay, next.planDay)
         assertTrue(next.review != off.review) // the off day used up one review portion
     }
