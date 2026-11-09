@@ -135,7 +135,12 @@ private fun stepsFor(plan: TodayPlan): List<Step> {
         list += Step("repeat", StepKind.REPEAT, "كرّر لتثبيت الحفظ", it.label, it.surahs, "${plan.repetitions} مرة", StepAction.COUNTER, plan.repetitions)
     }
     plan.review?.let {
-        list += Step("review", StepKind.REVIEW, "المراجعة", it.label, it.surahs, "مرة واحدة غيبًا · ${it.count} وجهًا")
+        // Reaching the newest old page, the review carries on from the first one.
+        val w = plan.reviewWrap
+        val pages = if (w != null) "${it.label} ثم ${w.label}" else it.label
+        val surahs = if (w != null && w.surahs != it.surahs) "${it.surahs} ثم ${w.surahs}" else it.surahs
+        val count = it.count + (w?.count ?: 0)
+        list += Step("review", StepKind.REVIEW, "المراجعة", pages, surahs, "مرة واحدة غيبًا · $count وجهًا")
     }
     return list
 }

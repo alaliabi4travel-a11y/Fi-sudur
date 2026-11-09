@@ -40,43 +40,39 @@ class PlanEngineTest {
         assertEquals(PageRange(21, 21), d22.yesterday)
         assertEquals(PageRange(1, 20), d22.linking)
         assertNull(d22.review)
-        assertEquals(0, d22.round)
         val d23 = engine.today(memo(22), 1, 40, DayKind.MEMO)
         assertEquals(PageRange(2, 21), d23.linking)
         assertEquals(PageRange(1, 1), d23.review) // even one page is reviewed
-        assertTrue(d23.roundStartsToday)
+        val d24 = engine.today(memo(23), 1, 40, DayKind.MEMO)
+        assertEquals(PageRange(2, 2), d24.review) // goes on from where it stopped
+        assertEquals(PageRange(1, 1), d24.reviewWrap) // then back to the first page
     }
 
-    @Test fun reviewPartsAreEven() {
-        // 28 old pages make two days of 14, not 20 then 8.
-        assertEquals(PageRange(1, 14), engine.part(1, 28, 2, 0))
-        assertEquals(PageRange(15, 28), engine.part(1, 28, 2, 1))
-        assertNull(engine.part(1, 28, 2, 2))
-    }
-
-    @Test fun eachCycleGoesOverAllOldPages() {
+    @Test fun reviewRunsOnWithoutStopping() {
         val h = memo(400, 2)
-        val covered = mutableSetOf<Int>()
-        var cycleTo = 0
         val hist = mutableListOf<DayEntry>()
-        var cycles = 0
+        var expectedNext: Int? = null
+        var wrapsSeen = 0
         for (e in h) {
             val p = engine.today(hist, 2, 40, DayKind.MEMO, e.date)
-            if (p.roundStartsToday) {
-                if (cycleTo > 0) {
-                    assertEquals((1..cycleTo).toSet(), covered)
-                    cycles++
+            val r = p.review
+            if (r != null) {
+                val oldTo = p.linking!!.from - 1
+                val total = r.count + (p.reviewWrap?.count ?: 0)
+                assertEquals(minOf(20, oldTo), total) // a juz a day, or all old pages if fewer
+                // It starts where yesterday stopped, or at page 1 if yesterday reached the end.
+                expectedNext?.let { n -> assertEquals(if (n > oldTo) 1 else n, r.from) }
+                val w = p.reviewWrap
+                if (w != null) {
+                    assertEquals(oldTo, r.to) // reached the newest old page...
+                    assertEquals(1, w.from) // ...and carried on from the first
+                    wrapsSeen++
                 }
-                covered.clear()
-                cycleTo = p.linking!!.from - 1
-            }
-            p.review?.let { r ->
-                assertTrue(r.count <= 20)
-                covered += r.from..r.to
+                expectedNext = (w ?: r).to + 1
             }
             hist += e
         }
-        assertTrue(cycles > 10)
+        assertTrue(wrapsSeen > 5)
     }
 
     @Test fun linkingNeverPassesTwentyPages() {

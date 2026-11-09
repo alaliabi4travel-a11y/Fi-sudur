@@ -11,9 +11,9 @@ import java.time.LocalTime
  * (one, two or three pages, changeable at any time):
  *  - Yesterday's repetition: the pages memorized on the last memorizing day.
  *  - Linking (ربط): the [LINK_PAGES] pages right before yesterday's pages, no more.
- *  - Review (مراجعة): everything older than linking, even a single page. It is gone
- *    over in cycles: when a cycle starts, the old pages are split into equal daily
- *    parts of at most [REVIEW_PAGES]; pages that leave linking meanwhile join the next cycle.
+ *  - Review (مراجعة): everything older than linking, even a single page. It runs on
+ *    without stopping: each day takes up to [REVIEW_PAGES] pages from where it stopped,
+ *    and on reaching the newest old page it carries on from the first one.
  */
 object PlanRules {
     const val LINK_PAGES = 20
@@ -52,9 +52,11 @@ data class TodayPlan(
     val yesterday: PageRange?,
     val linking: PageRange?,
     val review: PageRange?,
-    /** Number of the review cycle in progress, 0 before there is anything to review. */
+    /** When today's review reaches the newest old page, it carries on from the first: this part. */
+    val reviewWrap: PageRange? = null,
+    /** How many times the review has gone back to the first page. */
     val round: Int,
-    /** True on the first day of a review cycle. */
+    /** True when today's review starts from the first page. */
     val roundStartsToday: Boolean,
     val memorizationDone: Boolean,
 )
@@ -108,12 +110,11 @@ class PlanEngine(
             PageRange(memorized + 1, minOf(totalPages, memorized + amount))
         } else null
 
-        // Walk every recorded day, then today, keeping the review cycle's place.
-        var cycle = 0
-        var cycleTo = 0
-        var parts = 0
-        var index = 0
+        // Walk every recorded day, then today, keeping the review's place.
+        var cursor = startPage
+        var wraps = 0
         var review: PageRange? = null
+        var reviewWrap: PageRange? = null
         var startsToday = false
         var todayLayers: Layers? = null
         var soFar = startPage - 1
@@ -123,24 +124,28 @@ class PlanEngine(
             val isToday = i == sorted.size
             val e = if (isToday) null else sorted[i]
             val l = layers(soFar, lastMemo, last, e?.kind ?: todayKind, e?.date ?: today)
-            var portion: PageRange? = null
-            var started = false
+            var first: PageRange? = null
+            var second: PageRange? = null
+            var fromStart = false
             if (l.oldTo >= startPage) {
-                if (parts == 0 || index >= parts) {
-                    cycle++
-                    cycleTo = l.oldTo
-                    val size = cycleTo - startPage + 1
-                    parts = (size + PlanRules.REVIEW_PAGES - 1) / PlanRules.REVIEW_PAGES
-                    index = 0
-                    started = true
+                val amount = minOf(PlanRules.REVIEW_PAGES, l.oldTo - startPage + 1)
+                if (cursor > l.oldTo || cursor < startPage) cursor = startPage
+                fromStart = cursor == startPage
+                first = PageRange(cursor, minOf(l.oldTo, cursor + amount - 1))
+                val rest = amount - first.count
+                if (rest > 0) {
+                    second = PageRange(startPage, startPage + rest - 1)
+                    cursor = startPage + rest
+                    wraps++
+                } else {
+                    cursor = first.to + 1
                 }
-                portion = part(startPage, cycleTo, parts, index)
-                index++
             }
             if (isToday) {
                 todayLayers = l
-                review = portion
-                startsToday = started
+                review = first
+                reviewWrap = second
+                startsToday = fromStart
             } else {
                 if (e!!.kind == DayKind.MEMO) {
                     lastMemo = e
@@ -159,23 +164,11 @@ class PlanEngine(
             yesterday = l.yesterday,
             linking = l.linking,
             review = review,
-            round = cycle,
+            reviewWrap = reviewWrap,
+            round = wraps,
             roundStartsToday = startsToday,
             memorizationDone = memoDone,
         )
-    }
-
-    /** Splits [from..to] into [n] near-equal parts and returns part [index]. */
-    fun part(from: Int, to: Int, n: Int, index: Int): PageRange? {
-        val total = to - from + 1
-        if (total <= 0 || n <= 0 || index !in 0 until n) return null
-        val base = total / n
-        val extra = total % n
-        // The first `extra` parts get one more page.
-        val start = from + index * base + minOf(index, extra)
-        val size = base + if (index < extra) 1 else 0
-        if (size <= 0) return null
-        return PageRange(start, start + size - 1)
     }
 
     /**
