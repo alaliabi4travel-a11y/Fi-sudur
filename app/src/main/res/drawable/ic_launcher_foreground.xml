@@ -1,12 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- An open book under a crescent, in lamp-light gold. -->
+<!-- An open mushaf resting on a rahl (Quran stand), in lamp-light gold. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#C89A3C"
-        android:pathData="M54,30 a10,10 0 1,0 8,16 a8,8 0 1,1 -8,-16z" />
+    <!-- the stand -->
+    <path android:strokeColor="#C89A3C" android:strokeWidth="5" android:strokeLineCap="round"
+        android:pathData="M30,92 L78,70 M78,92 L30,70" />
+    <!-- the two pages -->
+    <path android:fillColor="#F3DFA8"
+        android:pathData="M22,50 C32,43 44,43 53,50 L53,76 C44,70 32,70 22,76 Z" />
     <path android:fillColor="#E9C77E"
-        android:pathData="M30,56 C38,52 46,52 53,57 L53,80 C46,75 38,75 30,79 Z" />
-    <path android:fillColor="#E9C77E"
-        android:pathData="M78,56 C70,52 62,52 55,57 L55,80 C62,75 70,75 78,79 Z" />
+        android:pathData="M86,50 C76,43 64,43 55,50 L55,76 C64,70 76,70 86,76 Z" />
+    <!-- lines of text -->
+    <path android:strokeColor="#801E3157" android:strokeWidth="1.6" android:strokeLineCap="round"
+        android:pathData="M28,55 C35,51 42,51 48,55 M28,60 C35,56 42,56 48,60 M28,65 C35,61 42,61 48,65 M60,55 C66,51 73,51 80,55 M60,60 C66,56 73,56 80,60 M60,65 C66,61 73,61 80,65" />
 </vector>
