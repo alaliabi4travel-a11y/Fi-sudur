@@ -93,7 +93,7 @@ private fun Header(s: UiState) {
         Text("في صدور", style = MaterialTheme.typography.headlineMedium, color = pal.ink)
         Spacer(Modifier.width(10.dp))
         Text(
-            if (s.plan.round > 0) "اليوم ${s.plan.planDay.ar()} · الجولة ${s.plan.round.ar()}" else "اليوم ${s.plan.planDay.ar()}",
+            "اليوم ${s.plan.planDay.ar()}",
             style = MaterialTheme.typography.bodyMedium,
             color = pal.muted,
             modifier = Modifier.weight(1f),
