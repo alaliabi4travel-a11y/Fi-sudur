@@ -117,12 +117,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         }
     }
 
-    override fun setTodayKind(kind: DayKind?) = update { it.copy(kindOverride = kind, checked = emptySet()) }
+    override fun setTodayKind(kind: DayKind?, reason: String?) =
+        update { it.copy(kindOverride = kind, reason = if (kind == DayKind.OFF) reason else null, checked = emptySet(), tallies = emptyMap()) }
 
     override fun finishDay() {
         val s = _state.value
         if (s.doneToday != null) return
-        history = (history + DayEntry(s.planDate, s.plan.kind, s.plan.newPages)).sortedBy { it.date }
+        history = (history + DayEntry(s.planDate, s.plan.kind, s.plan.newPages, s.progress.reason.takeIf { s.plan.kind == DayKind.OFF })).sortedBy { it.date }
         store.saveHistory(history)
         changed()
     }

@@ -53,6 +53,8 @@ data class DayEntry(
     val kind: DayKind,
     /** Pages memorized that day (null on an off day or after the whole Quran is memorized). */
     val pages: PageRange?,
+    /** Why an off day was taken outside the weekly off days: work, travel, sickness. */
+    val reason: String? = null,
 )
 
 data class TodayPlan(

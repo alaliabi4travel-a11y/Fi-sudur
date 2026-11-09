@@ -174,7 +174,11 @@ private fun WirdCard(s: UiState) {
             val newPages = p.newPages
             when {
                 p.kind == DayKind.OFF -> {
-                    Text("يوم إجازة", style = MaterialTheme.typography.displaySmall, color = pal.ink)
+                    Text(
+                        s.progress.reason?.let { "يوم عذر · $it" } ?: s.doneToday?.reason?.let { "يوم عذر · $it" } ?: "يوم إجازة",
+                        style = MaterialTheme.typography.displaySmall,
+                        color = pal.ink,
+                    )
                     Text("ربط ومراجعة فقط، بلا حفظ جديد", style = MaterialTheme.typography.bodyMedium, color = pal.muted)
                 }
                 newPages != null -> {
@@ -374,33 +378,59 @@ private fun DoneCard(s: UiState, a: Actions) {
     }
 }
 
+private val offReasons = listOf("عمل", "سفر", "مرض")
+
 @Composable
 private fun OffDayToggle(s: UiState, a: Actions) {
     val pal = LocalPalette.current
     val weeklyOff = s.planDate.dayOfWeek in s.settings.offWeekdays
     val isOff = s.plan.kind == DayKind.OFF
-    TextButton(
-        onClick = {
-            a.setTodayKind(
+    var choosing by remember { mutableStateOf(false) }
+    Box(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+            .background(pal.goldSoft.copy(alpha = .6f))
+            .border(1.dp, pal.gold.copy(alpha = .35f), RoundedCornerShape(18.dp))
+            .clickable {
                 when {
-                    isOff && weeklyOff -> DayKind.MEMO
-                    isOff -> null
-                    weeklyOff -> null
-                    else -> DayKind.OFF
-                },
-            )
-        },
-        modifier = Modifier.fillMaxWidth(),
+                    isOff && weeklyOff -> a.setTodayKind(DayKind.MEMO)
+                    isOff -> a.setTodayKind(null)
+                    weeklyOff -> a.setTodayKind(null)
+                    else -> choosing = true
+                }
+            }
+            .padding(vertical = 14.dp, horizontal = 16.dp),
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             when {
                 isOff && weeklyOff -> "أريد الحفظ اليوم رغم الإجازة"
-                isOff -> "إلغاء الإجازة والعودة للحفظ"
+                isOff -> "إلغاء العذر والعودة للحفظ"
                 weeklyOff -> "العودة إلى يوم الإجازة"
-                else -> "اجعل اليوم إجازة لعذر (مرض أو سفر)"
+                else -> "اجعل اليوم إجازة لعذر (عمل، سفر، مرض)"
             },
             style = MaterialTheme.typography.labelLarge,
-            color = pal.muted,
+            color = pal.ink,
+        )
+    }
+    if (choosing) {
+        AlertDialog(
+            onDismissRequest = { choosing = false },
+            title = { Text("ما العذر؟") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("يكون اليوم ربطًا ومراجعة فقط، بلا حفظ جديد.", style = MaterialTheme.typography.bodyMedium, color = pal.muted)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        offReasons.forEach { r ->
+                            Pill(r, false) {
+                                choosing = false
+                                a.setTodayKind(DayKind.OFF, r)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { choosing = false }) { Text("إلغاء") } },
         )
     }
 }

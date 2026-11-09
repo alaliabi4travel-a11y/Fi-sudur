@@ -36,6 +36,8 @@ data class DayProgress(
     val kindOverride: DayKind? = null,
     /** Taps counted on steps read several times (yesterday ×5, listening ×3). */
     val tallies: Map<String, Int> = emptyMap(),
+    /** Work, travel or sickness, when today was made an off day. */
+    val reason: String? = null,
 )
 
 /** Keeps everything in one JSON blob in SharedPreferences: small, simple and easy to back up. */
@@ -80,6 +82,7 @@ class Store(context: Context) {
                 date = LocalDate.parse(o.getString("d")),
                 kind = DayKind.valueOf(o.getString("k")),
                 pages = if (o.has("f")) PageRange(o.getInt("f"), o.getInt("t")) else null,
+                reason = o.optString("r", "").takeIf { it.isNotEmpty() },
             )
         }.sortedBy { it.date }
     }
@@ -89,6 +92,7 @@ class Store(context: Context) {
         h.sortedBy { it.date }.forEach { e ->
             val o = JSONObject().put("d", e.date.toString()).put("k", e.kind.name)
             e.pages?.let { o.put("f", it.from).put("t", it.to) }
+            e.reason?.let { o.put("r", it) }
             a.put(o)
         }
         prefs.edit().putString("history", a.toString()).apply()
@@ -103,6 +107,7 @@ class Store(context: Context) {
             checked = (0 until c.length()).map { c.getString(it) }.toSet(),
             counter = o.optInt("n", 0),
             kindOverride = o.optString("k", "").takeIf { it.isNotEmpty() }?.let { DayKind.valueOf(it) },
+            reason = o.optString("r", "").takeIf { it.isNotEmpty() },
             tallies = o.optJSONObject("t")?.let { t -> t.keys().asSequence().associateWith { t.getInt(it) } } ?: emptyMap(),
         )
     }
@@ -114,6 +119,7 @@ class Store(context: Context) {
             .put("n", p.counter)
             .put("k", p.kindOverride?.name ?: "")
             .put("t", JSONObject(p.tallies))
+            .put("r", p.reason ?: "")
         prefs.edit().putString("progress", o.toString()).apply()
     }
 

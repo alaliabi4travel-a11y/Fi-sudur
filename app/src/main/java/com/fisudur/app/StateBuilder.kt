@@ -52,7 +52,7 @@ data class UiState(
 interface Actions {
     fun toggle(stepId: String) {}
     fun setCounter(value: Int) {}
-    fun setTodayKind(kind: DayKind?) {}
+    fun setTodayKind(kind: DayKind?, reason: String? = null) {}
     fun finishDay() {}
     fun undoFinish() {}
     fun saveSettings(new: Settings) {}
