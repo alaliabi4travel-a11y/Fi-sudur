@@ -122,13 +122,13 @@ private fun stepsFor(plan: TodayPlan): List<Step> {
     // memorizing, recording to confirm, repetition to consolidate), and review last when there is one.
     val list = mutableListOf<Step>()
     plan.linking?.let {
-        list += Step("link", StepKind.LINK, "الربط", it.label, it.surahs, "مرة واحدة غيبًا · ${com.fisudur.app.ui.pagesText(it.count)}")
+        list += Step("link", StepKind.LINK, "الربط", it.label, it.surahs, "مرة واحدة غيبًا، ${com.fisudur.app.ui.pagesText(it.count)}")
     }
     plan.yesterday?.let {
         list += Step("yesterday", StepKind.YESTERDAY, "تكرار الأمس", it.label, it.surahs, "${PlanRules.YESTERDAY_REPS} مرات غيبًا", StepAction.TALLY, PlanRules.YESTERDAY_REPS)
     }
     plan.newPages?.let {
-        list += Step("tafsir", StepKind.TAFSIR, "اقرأ التفسير", it.label, it.surahs, "مرة واحدة · التفسير الميسّر أو المختصر")
+        list += Step("tafsir", StepKind.TAFSIR, "اقرأ التفسير", it.label, it.surahs, "مرة واحدة، التفسير الميسّر أو المختصر")
         list += Step("listen", StepKind.LISTEN, "استمع إلى القارئ", it.label, it.surahs, "${PlanRules.LISTEN_REPS} مرات مع النظر في المصحف", StepAction.TALLY, PlanRules.LISTEN_REPS)
         list += Step("memorize", StepKind.MEMORIZE, "احفظ الورد", it.label, it.surahs, "حتى تقرأه غيبًا")
         list += Step("record", StepKind.RECORD, "سجّل غيبًا لتأكيد الحفظ", it.label, it.surahs, "${PlanRules.RECORD_REPS} مرات متتالية بلا خطأ")
@@ -140,7 +140,7 @@ private fun stepsFor(plan: TodayPlan): List<Step> {
         val pages = if (w != null) "${it.label} ثم ${w.label}" else it.label
         val surahs = if (w != null && w.surahs != it.surahs) "${it.surahs} ثم ${w.surahs}" else it.surahs
         val count = it.count + (w?.count ?: 0)
-        list += Step("review", StepKind.REVIEW, "المراجعة", pages, surahs, "مرة واحدة غيبًا · ${com.fisudur.app.ui.pagesText(count)}")
+        list += Step("review", StepKind.REVIEW, "المراجعة", pages, surahs, "مرة واحدة غيبًا، ${com.fisudur.app.ui.pagesText(count)}")
     }
     return list
 }

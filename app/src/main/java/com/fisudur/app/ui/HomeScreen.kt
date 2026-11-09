@@ -124,14 +124,14 @@ private fun TodayCard(s: UiState) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "${Fmt.day(s.planDate.dayOfWeek)} · ${Fmt.shortDate(s.planDate).ar()}",
+                        "${Fmt.day(s.planDate.dayOfWeek)}، ${Fmt.shortDate(s.planDate).ar()}",
                         style = MaterialTheme.typography.labelMedium,
                         color = pal.gold,
                     )
                     Spacer(Modifier.height(2.dp))
                     when {
                         p.kind == DayKind.OFF -> {
-                            Text(reason?.let { "يوم عذر · $it" } ?: "يوم إجازة", style = MaterialTheme.typography.headlineMedium, color = pal.onHero)
+                            Text(reason?.let { "يوم عذر، $it" } ?: "يوم إجازة", style = MaterialTheme.typography.headlineMedium, color = pal.onHero)
                             Text("لا حفظ جديد، ويستمر ما قبله", style = MaterialTheme.typography.bodySmall, color = pal.onHeroMuted)
                         }
                         newPages != null -> {
@@ -147,7 +147,7 @@ private fun TodayCard(s: UiState) {
                                 maxLines = 1,
                             )
                             Text(
-                                "${pagesText(newPages.count)} · تكرار ${p.repetitions.ar()} مرة",
+                                "${pagesText(newPages.count)}، تكرار ${p.repetitions.ar()} مرة",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = pal.onHeroMuted,
                             )
@@ -268,7 +268,7 @@ private fun TimelineRow(
                 // One line: how many times, then which pages.
                 val detail = buildString {
                     append(if (step.action == StepAction.COUNTER) "${counter.ar()} / ${step.target.ar()} مرة" else step.times.ar())
-                    if (step.pages != null) append(" · ${step.pages.ar()} ${step.surahs}")
+                    if (step.pages != null) append("، ${step.pages.ar()} ${step.surahs}")
                 }
                 Text(
                     detail,
@@ -326,7 +326,7 @@ private fun FinishButton(s: UiState, onClick: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            if (ready) "أتممت خطوات اليوم · إنهاء اليوم" else "إنهاء اليوم",
+            if (ready) "أتممت خطوات اليوم، إنهاء اليوم" else "إنهاء اليوم",
             style = MaterialTheme.typography.titleMedium,
             color = Color.White,
         )
@@ -379,8 +379,8 @@ private fun TomorrowCard(t: UiState, a: Actions) {
                 Text("ورد الغد", style = MaterialTheme.typography.titleLarge, color = pal.ink)
                 val pages = t.plan.newPages
                 Text(
-                    if (pages != null) "${Fmt.day(t.planDate.dayOfWeek)} · الوجه ${pages.label.ar()} · ${pages.surahs}"
-                    else "${Fmt.day(t.planDate.dayOfWeek)} · يوم إجازة",
+                    if (pages != null) "${Fmt.day(t.planDate.dayOfWeek)}، الوجه ${pages.label.ar()}، ${pages.surahs}"
+                    else "${Fmt.day(t.planDate.dayOfWeek)}، يوم إجازة",
                     style = MaterialTheme.typography.bodySmall,
                     color = pal.muted,
                 )

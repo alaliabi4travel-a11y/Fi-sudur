@@ -137,7 +137,7 @@ private fun PlanCard(c: PlanChoice, selected: Boolean, onClick: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(c.title, style = MaterialTheme.typography.titleMedium, color = pal.ink)
             Text(
-                "تكرار ${c.reps.ar()} مرة · نحو ${c.days.ar()} يومًا",
+                "تكرار ${c.reps.ar()} مرة، نحو ${c.days.ar()} يومًا",
                 style = MaterialTheme.typography.bodySmall,
                 color = pal.muted,
             )

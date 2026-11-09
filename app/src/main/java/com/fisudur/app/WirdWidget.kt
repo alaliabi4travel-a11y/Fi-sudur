@@ -53,7 +53,7 @@ class WirdWidget : AppWidgetProvider() {
                     v.setTextViewText(
                         R.id.w_steps,
                         if (s.doneToday != null) "أنجزت يومك ✓"
-                        else "${s.checkedCount.ar()} من ${s.steps.size.ar()} خطوات · ينتهي ${Fmt.time(s.clock.dayEnd(s.now).toLocalTime()).ar()}",
+                        else "${s.checkedCount.ar()} من ${s.steps.size.ar()} خطوات، ينتهي ${Fmt.time(s.clock.dayEnd(s.now).toLocalTime()).ar()}",
                     )
                 }
             }

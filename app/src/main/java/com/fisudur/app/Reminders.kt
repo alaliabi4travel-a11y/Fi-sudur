@@ -93,7 +93,7 @@ object Reminders {
         val nm = context.getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel(CHANNEL, "تذكير الورد", NotificationManager.IMPORTANCE_DEFAULT))
         val pages = s.plan.newPages
-        val wird = if (pages != null) "الوجه ${pages.label.ar()} · سورة ${pages.surahs}" else "ربط ومراجعة"
+        val wird = if (pages != null) "الوجه ${pages.label.ar()}، سورة ${pages.surahs}" else "ربط ومراجعة"
         val title = if (late) "بقيت ساعة على نهاية يومك" else "حان وقت وردك"
         val text = if (late) "لم تُنهِ وردك بعد: $wird" else wird
         val open = PendingIntent.getActivity(

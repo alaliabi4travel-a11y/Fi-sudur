@@ -108,7 +108,7 @@ fun SettingsScreen(s: UiState, a: Actions) {
         Section(
             Icons.Outlined.Flag,
             "بداية الخطة",
-            "بدأت ${st.startDate?.let { Fmt.shortDate(it).ar() } ?: "-"} · من الوجه ${st.startPage.ar()}",
+            "بدأت ${st.startDate?.let { Fmt.shortDate(it).ar() } ?: "-"}، من الوجه ${st.startPage.ar()}",
         ) {
             var page by remember(st.startPage) { mutableStateOf(st.startPage.toString()) }
             Row(verticalAlignment = Alignment.CenterVertically) {

@@ -85,7 +85,7 @@ fun CounterScreen(s: UiState, a: Actions) {
     ) {
         Text("عدّاد التكرار", style = MaterialTheme.typography.headlineLarge, color = pal.ink, modifier = Modifier.padding(top = 6.dp))
         Text(
-            if (pages != null) "الوجه ${pages.label.ar()} · سورة ${pages.surahs}" else "عدّاد حر",
+            if (pages != null) "الوجه ${pages.label.ar()}، سورة ${pages.surahs}" else "عدّاد حر",
             style = MaterialTheme.typography.bodyMedium,
             color = pal.muted,
         )
