@@ -28,6 +28,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
     private var settings = store.loadSettings()
     private var history: List<DayEntry> = store.loadHistory()
     private var progress: DayProgress? = store.loadProgress()
+    private var nextProgress: DayProgress? = store.loadNextProgress()
 
     private var update: UpdateState = UpdateState.Idle
 
@@ -85,8 +86,22 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
             history = (history + e).sortedBy { it.date }
             store.saveHistory(history)
         }
-        val s = buildUiState(now, settings, history, progress)
-            .copy(update = update, lastAutoBackup = lastBackup)
+        val today = DayClock(settings.dayEnd).planDate(now)
+        // Tomorrow has come: what was started early becomes today's progress.
+        if (progress?.date != today && nextProgress != null) {
+            if (nextProgress?.date == today) {
+                progress = nextProgress
+                store.saveProgress(progress!!)
+            }
+            nextProgress = null
+            store.saveNextProgress(null)
+        }
+        val base = buildUiState(now, settings, history, progress)
+        val tomorrow = if (base.doneToday != null) {
+            val start = DayClock(settings.dayEnd).dayEnd(now).plusMinutes(1)
+            buildUiState(start, settings, history, nextProgress)
+        } else null
+        val s = base.copy(update = update, lastAutoBackup = lastBackup, tomorrow = tomorrow)
         if (progress != s.progress) {
             progress = s.progress
             store.saveProgress(s.progress)
@@ -134,6 +149,29 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
             } else {
                 p.copy(tallies = p.tallies + (stepId to n), checked = if (n == target) p.checked + stepId else p.checked)
             }
+        }
+    }
+
+    private fun updateNext(block: (DayProgress) -> DayProgress) {
+        val t = _state.value.tomorrow ?: return
+        val p = block(t.progress)
+        nextProgress = p
+        store.saveNextProgress(p)
+        refresh()
+    }
+
+    override fun toggleNext(stepId: String) {
+        val step = _state.value.tomorrow?.steps?.firstOrNull { it.id == stepId } ?: return
+        if (step.action == StepAction.COUNTER) return
+        updateNext { p -> p.copy(checked = if (stepId in p.checked) p.checked - stepId else p.checked + stepId) }
+    }
+
+    override fun tallyNext(stepId: String) {
+        val target = _state.value.tomorrow?.steps?.firstOrNull { it.id == stepId }?.target ?: return
+        updateNext { p ->
+            val n = (p.tallies[stepId] ?: 0) + 1
+            if (n > target) p.copy(tallies = p.tallies - stepId, checked = p.checked - stepId)
+            else p.copy(tallies = p.tallies + (stepId to n), checked = if (n == target) p.checked + stepId else p.checked)
         }
     }
 
@@ -207,6 +245,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         settings = store.loadSettings()
         history = store.loadHistory()
         progress = store.loadProgress()
+        nextProgress = store.loadNextProgress()
         changed()
     }
 
@@ -283,6 +322,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         settings = Settings()
         history = emptyList()
         progress = null
+        nextProgress = null
         changed()
     }
 }

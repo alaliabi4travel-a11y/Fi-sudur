@@ -78,4 +78,12 @@ class ScreensShots {
     @Test fun settings() = shot(3)
     @Test fun firstDay() = shot(0, buildUiState(LocalDateTime.of(today, LocalTime.of(21, 35)), settings.copy(startDate = today), emptyList(), null))
     @Test fun setup() = shot(0, state(s = Settings()))
+    @Test fun tomorrow() {
+        val pages = PlanEngine(1).today(history, 2, PlanRules.defaultRepetitions(2), DayKind.MEMO, today).newPages
+        val h = history + DayEntry(today, DayKind.MEMO, pages)
+        val base = buildUiState(LocalDateTime.of(today, LocalTime.of(21, 35)), settings, h, DayProgress(today))
+        val next = today.plusDays(1)
+        val t = buildUiState(next.atTime(4, 1), settings, h, DayProgress(next, setOf("tafsir")))
+        shot(0, base.copy(tomorrow = t))
+    }
 }

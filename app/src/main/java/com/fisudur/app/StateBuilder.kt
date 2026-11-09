@@ -41,6 +41,8 @@ data class UiState(
     val update: UpdateState = UpdateState.Idle,
     /** When the newest automatic copy inside the phone was taken, if any. */
     val lastAutoBackup: String? = null,
+    /** Tomorrow's wird, shown once today is finished so it can be started early. */
+    val tomorrow: UiState? = null,
 ) {
     val needsSetup: Boolean get() = settings.startDate == null
     val clock: DayClock get() = DayClock(settings.dayEnd)
@@ -71,6 +73,10 @@ interface Actions {
     fun canBackfillMemo(s: UiState, date: LocalDate): Boolean =
         date.isBefore(s.planDate) && s.history.none { !it.date.isBefore(date) }
     fun setForeground(on: Boolean) {}
+    /** Checks or unchecks a step of tomorrow's wird, started early. */
+    fun toggleNext(stepId: String) {}
+    /** One more reading of a step of tomorrow's wird. */
+    fun tallyNext(stepId: String) {}
 }
 
 object NoActions : Actions

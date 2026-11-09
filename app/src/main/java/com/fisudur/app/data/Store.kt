@@ -98,8 +98,19 @@ class Store(context: Context) {
         prefs.edit().putString("history", a.toString()).apply()
     }
 
-    fun loadProgress(): DayProgress? {
-        val s = prefs.getString("progress", null) ?: return null
+    fun loadProgress(): DayProgress? = readProgress("progress")
+
+    fun saveProgress(p: DayProgress) = writeProgress("progress", p)
+
+    /** Steps of tomorrow's wird started early, after today was finished. */
+    fun loadNextProgress(): DayProgress? = readProgress("next")
+
+    fun saveNextProgress(p: DayProgress?) {
+        if (p == null) prefs.edit().remove("next").commit() else writeProgress("next", p)
+    }
+
+    private fun readProgress(key: String): DayProgress? {
+        val s = prefs.getString(key, null) ?: return null
         val o = JSONObject(s)
         val c = o.optJSONArray("c") ?: JSONArray()
         return DayProgress(
@@ -112,7 +123,7 @@ class Store(context: Context) {
         )
     }
 
-    fun saveProgress(p: DayProgress) {
+    private fun writeProgress(key: String, p: DayProgress) {
         val o = JSONObject()
             .put("d", p.date.toString())
             .put("c", JSONArray(p.checked.toList()))
@@ -120,7 +131,7 @@ class Store(context: Context) {
             .put("k", p.kindOverride?.name ?: "")
             .put("t", JSONObject(p.tallies))
             .put("r", p.reason ?: "")
-        prefs.edit().putString("progress", o.toString()).commit()
+        prefs.edit().putString(key, o.toString()).commit()
     }
 
     fun clearAll() {

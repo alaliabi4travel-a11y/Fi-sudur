@@ -22,6 +22,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.WbTwilight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -64,6 +66,7 @@ fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
         item { TodayCard(s) }
         if (s.doneToday != null) {
             item { DoneCard(s, a) }
+            s.tomorrow?.let { t -> item { TomorrowCard(t, a) } }
         } else {
             item { Timeline(s, a, openCounter) }
             item { FinishButton(s) { if (s.allChecked) a.finishDay() else confirmFinish = true } }
@@ -353,6 +356,72 @@ private fun DoneCard(s: UiState, a: Actions) {
                 color = pal.onHeroMuted,
             )
             TextButton(onClick = a::undoFinish) { Text("تراجع عن الإنهاء", color = pal.gold) }
+        }
+    }
+}
+
+/** After today is finished: tomorrow's wird, folded, so it can be read or started early. */
+@Composable
+private fun TomorrowCard(t: UiState, a: Actions) {
+    val pal = LocalPalette.current
+    var open by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
+                .background(pal.card)
+                .border(1.dp, pal.gold.copy(alpha = .45f), RoundedCornerShape(18.dp))
+                .clickable { open = !open }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("ورد الغد", style = MaterialTheme.typography.titleLarge, color = pal.ink)
+                val pages = t.plan.newPages
+                Text(
+                    if (pages != null) "${Fmt.day(t.planDate.dayOfWeek)} · الوجه ${pages.label.ar()} · ${pages.surahs}"
+                    else "${Fmt.day(t.planDate.dayOfWeek)} · يوم إجازة",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = pal.muted,
+                )
+            }
+            if (t.checkedCount > 0) {
+                Chip("${t.checkedCount.ar()} من ${t.steps.size.ar()}", pal.goldSoft, pal.ink)
+                Spacer(Modifier.width(8.dp))
+            }
+            Icon(
+                if (open) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                null,
+                tint = pal.gold,
+            )
+        }
+        if (open) {
+            Spacer(Modifier.height(10.dp))
+            Column {
+                t.steps.forEachIndexed { i, step ->
+                    TimelineRow(
+                        step = step,
+                        checked = step.id in t.progress.checked,
+                        first = i == 0,
+                        last = i == t.steps.lastIndex,
+                        counter = t.progress.counter,
+                        tally = t.progress.tallies[step.id] ?: 0,
+                        onOpen = {
+                            when (step.action) {
+                                StepAction.COUNTER -> {}
+                                StepAction.TALLY -> a.tallyNext(step.id)
+                                StepAction.CHECK -> a.toggleNext(step.id)
+                            }
+                        },
+                        onCheck = { if (step.action != StepAction.COUNTER) a.toggleNext(step.id) },
+                    )
+                }
+            }
+            Text(
+                "ما تنجزه الآن يُحسب لك غدًا. التكرار بالعداد يبدأ مع يوم الغد.",
+                style = MaterialTheme.typography.bodySmall,
+                color = pal.muted,
+                modifier = Modifier.padding(horizontal = 4.dp),
+            )
         }
     }
 }
