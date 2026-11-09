@@ -31,6 +31,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
 
     private var update: UpdateState = UpdateState.Idle
 
+    /** Read from disk only when backups change, not on every tick. */
+    private var lastBackup: String? = null
+    private fun readLastBackup() { lastBackup = store.autoBackups().firstOrNull()?.name?.take(10) }
+
     private val _state = MutableStateFlow(build())
     val state: StateFlow<UiState> = _state.asStateFlow()
 
@@ -39,6 +43,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
     init {
         checkUpdate(quiet = true)
         runCatching { store.autoBackup() }
+        readLastBackup()
+        refresh()
         Reminders.schedule(app)
         WirdWidget.refresh(app)
     }
@@ -187,9 +193,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
             .onFailure { toast("تعذّرت الاستعادة") }
     }
 
-    private val lastBackup: String? get() = store.autoBackups().firstOrNull()?.name?.take(10)
 
     private fun reload() {
+        readLastBackup()
         settings = store.loadSettings()
         history = store.loadHistory()
         progress = store.loadProgress()
@@ -265,6 +271,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         // A copy first, so "start a new plan" by mistake can be undone from Settings.
         runCatching { store.autoBackup(force = true) }
         store.clearAll()
+        readLastBackup()
         settings = Settings()
         history = emptyList()
         progress = null

@@ -107,12 +107,12 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
         val byReason = excused.groupingBy { it.reason!! }.eachCount()
         SectionTitle("سجل الأيام")
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            DayTile("حفظ", st.memoDays, MaterialTheme.colorScheme.primary, null, Modifier.weight(1f))
+            DayTile("حفظ", st.memoDays, pal.done, null, Modifier.weight(1f))
             DayTile("إجازة", leave, pal.gold, null, Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             DayTile(
-                "عذر", excused.size, pal.done,
+                "عذر", excused.size, pal.excuse,
                 listOf("عمل", "سفر", "مرض").mapNotNull { r -> byReason[r]?.let { "$r ${it.ar()}" } }.joinToString(" · ").ifEmpty { null },
                 Modifier.weight(1f),
             )
@@ -207,12 +207,12 @@ private fun LastDays(s: UiState, onMissed: (LocalDate) -> Unit) {
 private fun dayColors(d: LocalDate, e: com.fisudur.app.engine.DayEntry?, start: LocalDate, today: LocalDate): Pair<Color, Color> {
     val pal = LocalPalette.current
     return when {
-        e?.kind == DayKind.MEMO -> MaterialTheme.colorScheme.primary to Color.White
-        e?.kind == DayKind.OFF && e.reason != null -> pal.done to Color.White
+        e?.kind == DayKind.MEMO -> pal.done to Color.White
+        e?.kind == DayKind.OFF && e.reason != null -> pal.excuse to Color.White
         e?.kind == DayKind.OFF -> pal.gold to Color.White
         d == today -> pal.goldSoft to pal.ink
         d.isBefore(start) || d.isAfter(today) -> MaterialTheme.colorScheme.surfaceVariant to pal.muted
-        else -> pal.warn.copy(alpha = .8f) to Color.White
+        else -> pal.warn to Color.White
     }
 }
 
@@ -220,10 +220,10 @@ private fun dayColors(d: LocalDate, e: com.fisudur.app.engine.DayEntry?, start: 
 private fun Legend() {
     val pal = LocalPalette.current
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        LegendItem(MaterialTheme.colorScheme.primary, "حفظ")
+        LegendItem(pal.done, "حفظ")
         LegendItem(pal.gold, "إجازة")
-        LegendItem(pal.done, "عذر")
-        LegendItem(pal.warn.copy(alpha = .8f), "تفريط")
+        LegendItem(pal.excuse, "عذر")
+        LegendItem(pal.warn, "تفريط")
     }
 }
 

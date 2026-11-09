@@ -59,6 +59,8 @@ data class Palette(
     val line: Color,
     val done: Color,
     val warn: Color,
+    /** Days off for a reason (work, travel, sickness). */
+    val excuse: Color,
 )
 
 private val NavyDeep = Color(0xFF101C38)
@@ -80,6 +82,7 @@ private val LightPalette = Palette(
     line = Color(0xFFE7DEC9),
     done = Color(0xFF2F7D5B),
     warn = Color(0xFFB4483C),
+    excuse = Color(0xFF4F7CAC),
 )
 
 private val DarkPalette = Palette(
@@ -94,6 +97,7 @@ private val DarkPalette = Palette(
     line = Color(0xFF26324F),
     done = Color(0xFF5FBF92),
     warn = Color(0xFFE07A6E),
+    excuse = Color(0xFF7FA8D6),
 )
 
 val LocalPalette = staticCompositionLocalOf { LightPalette }
