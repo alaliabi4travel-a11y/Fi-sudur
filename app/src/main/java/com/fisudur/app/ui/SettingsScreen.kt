@@ -86,7 +86,7 @@ fun SettingsScreen(s: UiState, a: Actions) {
             }
             if (st.repetitions != null) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(10, 20, 30, 40, 50).forEach { n ->
+                    listOf(30, 40, 50).forEach { n ->
                         Pill(n.ar(), st.repetitions == n) { a.saveSettings(st.copy(repetitions = n)) }
                     }
                 }
