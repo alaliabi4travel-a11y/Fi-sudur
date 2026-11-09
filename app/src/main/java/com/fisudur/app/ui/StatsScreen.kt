@@ -82,7 +82,7 @@ fun StatsScreen(s: UiState) {
                     )
                     if (f != null) {
                         Text(
-                            "بعد ${st.daysToFinish.ar()} يومًا، بمقدار ${amountLabel(s.settings.amount)} يوميًا",
+                            "بعد ${st.daysToFinish.toString().ar()} يومًا، بمقدار ${amountLabel(s.settings.amount)} يوميًا",
                             style = MaterialTheme.typography.bodySmall,
                             color = pal.muted,
                         )
