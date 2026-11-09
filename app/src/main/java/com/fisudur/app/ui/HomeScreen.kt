@@ -496,11 +496,9 @@ private const val FILL_FOOT = "foot"
 private val RAIL_GAP = 6.dp
 
 /**
- * Lays the home out top to bottom and, when it is shorter than the screen, spends the
- * spare height so the page reaches the bottom instead of leaving it empty:
- * first the step cards grow a little, then the today card, then the gaps between
- * sections; anything left goes above the finish button so it sits near the thumb.
- * When the content is taller than the screen it simply scrolls.
+ * Lays the home out top to bottom with fixed card sizes that never change with the
+ * number of steps. A long day scrolls; a short day keeps the finish button at the
+ * bottom of the screen so nothing is left empty below it.
  */
 @Composable
 private fun FillScreen(minHeight: Dp, modifier: Modifier, content: @Composable () -> Unit) {
@@ -521,14 +519,13 @@ private fun FillScreen(minHeight: Dp, modifier: Modifier, content: @Composable (
                 natural[i] = fixed[i]!!.height
             }
         }
-        var spare = (minHeight.roundToPx() - natural.sum() - gaps * gap).coerceAtLeast(0)
+        // Fixed sizes, the same every day: the page scrolls when the day has more steps.
         val rows = ids.count { it == FILL_ROW }
-        val rowGrow = if (rows > 0) minOf(22.dp.roundToPx(), spare / rows) else 0
-        spare -= rowGrow * rows
-        val cardGrow = if (FILL_CARD in ids) minOf(32.dp.roundToPx(), spare / 2) else 0
-        spare -= cardGrow
-        val gapGrow = if (gaps > 0) minOf(14.dp.roundToPx(), spare / gaps) else 0
-        spare -= gapGrow * gaps
+        val rowGrow = 22.dp.roundToPx()
+        val cardGrow = 6.dp.roundToPx()
+        val gapGrow = 0
+        val used = natural.sum() + rows * rowGrow + (if (FILL_CARD in ids) cardGrow else 0) + gaps * gap
+        val spare = (minHeight.roundToPx() - used).coerceAtLeast(0)
         val foot = ids.indexOf(FILL_FOOT)
         val placeables = ms.mapIndexed { i, m ->
             fixed[i] ?: run {
