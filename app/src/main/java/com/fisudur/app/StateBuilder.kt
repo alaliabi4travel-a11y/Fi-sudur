@@ -15,7 +15,7 @@ import java.time.LocalDateTime
 
 enum class StepAction { CHECK, COUNTER, TALLY }
 
-enum class StepKind { YESTERDAY, LISTEN, TAFSIR, REPEAT, RECORD, LINK, REVIEW }
+enum class StepKind { YESTERDAY, LISTEN, TAFSIR, MEMORIZE, REPEAT, RECORD, LINK, REVIEW }
 
 data class Step(
     val id: String,
@@ -119,7 +119,7 @@ fun autoFinishEntry(settings: Settings, history: List<DayEntry>, stored: DayProg
 
 private fun stepsFor(plan: TodayPlan): List<Step> {
     // Order as practised: linking, yesterday, then the new pages (tafsir, listening,
-    // recording to confirm, repetition to consolidate), and review last when there is one.
+    // memorizing, recording to confirm, repetition to consolidate), and review last when there is one.
     val list = mutableListOf<Step>()
     plan.linking?.let {
         list += Step("link", StepKind.LINK, "الربط", it.label, it.surahs, "مرة واحدة غيبًا · ${it.count} وجهًا")
@@ -130,6 +130,7 @@ private fun stepsFor(plan: TodayPlan): List<Step> {
     plan.newPages?.let {
         list += Step("tafsir", StepKind.TAFSIR, "اقرأ التفسير", it.label, it.surahs, "مرة واحدة · الميسّر أو المختصر")
         list += Step("listen", StepKind.LISTEN, "استمع إلى القارئ", it.label, it.surahs, "${PlanRules.LISTEN_REPS} مرات مع النظر في المصحف", StepAction.TALLY, PlanRules.LISTEN_REPS)
+        list += Step("memorize", StepKind.MEMORIZE, "احفظ الورد", it.label, it.surahs, "حتى تقرأه غيبًا")
         list += Step("record", StepKind.RECORD, "سجّل غيبًا لتأكيد الحفظ", it.label, it.surahs, "${PlanRules.RECORD_REPS} مرات متتالية بلا خطأ")
         list += Step("repeat", StepKind.REPEAT, "كرّر لتثبيت الحفظ", it.label, it.surahs, "${plan.repetitions} مرة", StepAction.COUNTER, plan.repetitions)
     }

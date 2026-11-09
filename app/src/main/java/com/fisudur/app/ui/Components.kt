@@ -28,6 +28,7 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Psychology
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -64,6 +65,7 @@ fun stepIcon(kind: StepKind): ImageVector = when (kind) {
     StepKind.LISTEN -> Icons.Outlined.Headphones
     StepKind.TAFSIR -> Icons.Outlined.MenuBook
     StepKind.REPEAT -> Icons.Outlined.Repeat
+    StepKind.MEMORIZE -> Icons.Outlined.Psychology
     StepKind.RECORD -> Icons.Outlined.Mic
     StepKind.LINK -> Icons.Outlined.Link
     StepKind.REVIEW -> Icons.Outlined.AutoStories

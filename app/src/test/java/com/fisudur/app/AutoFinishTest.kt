@@ -14,7 +14,7 @@ class AutoFinishTest {
 
     @Test
     fun fullyCheckedDayIsRecorded() {
-        val all = setOf("tafsir", "listen", "record", "repeat")
+        val all = setOf("tafsir", "listen", "memorize", "record", "repeat")
         val e = autoFinishEntry(settings, emptyList(), DayProgress(start, checked = all), start.plusDays(1))
         assertEquals(DayKind.MEMO, e!!.kind)
         assertEquals(1, e.pages!!.from)
@@ -27,7 +27,7 @@ class AutoFinishTest {
 
     @Test
     fun todayIsNeverAutoFinished() {
-        val all = setOf("tafsir", "listen", "record", "repeat")
+        val all = setOf("tafsir", "listen", "memorize", "record", "repeat")
         assertNull(autoFinishEntry(settings, emptyList(), DayProgress(start, checked = all), start))
     }
 
