@@ -55,6 +55,13 @@ android {
     }
 }
 
+// Screenshots of every screen, rendered on the JVM. Only with -Pshots, so a
+// rendering problem can never block a release.
+if (project.hasProperty("shots")) {
+    apply(plugin = "app.cash.paparazzi")
+    android.sourceSets.getByName("test").java.srcDir("src/shots/java")
+}
+
 dependencies {
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)

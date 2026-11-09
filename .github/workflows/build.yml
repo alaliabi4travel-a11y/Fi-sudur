@@ -24,6 +24,16 @@ jobs:
       - name: Unit tests (plan rules against the printed tables)
         run: ./gradlew --no-daemon testDebugUnitTest
 
+      - name: Screenshots of every screen
+        continue-on-error: true
+        run: |
+          ./gradlew --no-daemon -Pshots recordPaparazziDebug
+          mkdir -p shots
+          for f in $(find app -path '*snapshots/images*' -name '*.png'); do
+            n=$(basename "$f" .png); cp "$f" "shots/screen-${n##*_}.png"
+          done
+          ls shots
+
       - name: Signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -52,7 +62,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v1.0.${{ github.run_number }}" "fi-sudur-1.0.${{ github.run_number }}.apk" \
+          gh release create "v1.0.${{ github.run_number }}" "fi-sudur-1.0.${{ github.run_number }}.apk" $(ls shots/*.png 2>/dev/null) \
             --title "في صدور 1.0.${{ github.run_number }}" \
             --notes "$(git log -1 --pretty=%s)
 

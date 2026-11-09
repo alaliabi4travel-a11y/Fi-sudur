@@ -6,16 +6,18 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.EventAvailable
+import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,9 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.fisudur.app.UiState
 import com.fisudur.app.engine.DayKind
 import java.time.LocalDate
@@ -33,84 +33,103 @@ import java.time.LocalDate
 @Composable
 fun StatsScreen(s: UiState) {
     val st = s.stats
+    val pal = LocalPalette.current
     Column(
-        Modifier.verticalScroll(rememberScrollState()).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text("إحصائياتي", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        ScreenTitle("إحصائياتي", "مسيرتك مع كتاب الله")
 
-        Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary)) {
-            Column(Modifier.fillMaxWidth().padding(20.dp)) {
-                Text("المحفوظ", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .75f))
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text("${st.pagesMemorized}", fontSize = 40.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
-                    Text(" وجهًا من 604 · ${st.percent}%", color = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.padding(bottom = 8.dp))
-                }
-                LinearProgressIndicator(
-                    progress = { st.percent / 100f },
-                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(50)),
-                    color = MaterialTheme.colorScheme.secondary,
-                    trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = .2f),
-                )
-                Spacer(Modifier.height(8.dp))
-                Text("الجزء ${st.currentJuz} · المتبقي ${st.pagesRemaining} وجهًا", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .85f))
-            }
-        }
-
-        Card(shape = RoundedCornerShape(20.dp)) {
-            Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                Text("موعد الختم المتوقع", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                val f = st.projectedFinish
-                Text(
-                    if (f != null) Fmt.date(f) else "أتممت الحفظ",
-                    fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary,
-                )
-                if (f != null) {
+        // Hero: pages memorized with a big ring.
+        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(pal.hero)) {
+            KhatamPattern(Modifier.matchParentSize(), color = pal.gold.copy(alpha = .09f))
+            Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("المحفوظ", style = MaterialTheme.typography.labelLarge, color = pal.gold)
+                    Text(st.pagesMemorized.ar(), style = MaterialTheme.typography.displayLarge, color = pal.onHero)
+                    Text("وجهًا من ٦٠٤", style = MaterialTheme.typography.bodyLarge, color = pal.onHeroMuted)
+                    Spacer(Modifier.height(8.dp))
                     Text(
-                        "بعد ${st.daysToFinish} يومًا، بمقدار ${amountLabel(s.settings.amount)} يوميًا مع أيام الإجازة الأسبوعية",
-                        fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        "الجزء ${st.currentJuz.ar()} · المتبقي ${st.pagesRemaining.ar()} وجهًا",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = pal.onHeroMuted,
                     )
                 }
+                Ring(
+                    progress = st.percent / 100f,
+                    modifier = Modifier.size(120.dp),
+                    color = pal.gold,
+                    track = Color.White.copy(alpha = .14f),
+                    width = 8.dp,
+                ) {
+                    Text("${st.percent.ar()}٪", style = MaterialTheme.typography.headlineMedium, color = pal.onHero)
+                }
+            }
+        }
+
+        // Projected finish.
+        Panel(Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBadge(Icons.Outlined.EventAvailable, pal.goldSoft, pal.gold)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("موعد الختم المتوقع", style = MaterialTheme.typography.labelMedium, color = pal.muted)
+                    val f = st.projectedFinish
+                    Text(
+                        if (f != null) Fmt.date(f).ar() else "أتممت الحفظ، الحمد لله",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = pal.ink,
+                    )
+                    if (f != null) {
+                        Text(
+                            "بعد ${st.daysToFinish.ar()} يومًا، بمقدار ${amountLabel(s.settings.amount)} يوميًا",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = pal.muted,
+                        )
+                    }
+                }
+            }
+        }
+
+        // Streak.
+        Panel(Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconBadge(Icons.Outlined.LocalFireDepartment, pal.goldSoft, pal.gold)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("الاستمرار الحالي", style = MaterialTheme.typography.labelMedium, color = pal.muted)
+                    Text("${st.currentStreak.ar()} يومًا", style = MaterialTheme.typography.headlineMedium, color = pal.ink)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("الأطول", style = MaterialTheme.typography.labelMedium, color = pal.muted)
+                    Text(st.longestStreak.ar(), style = MaterialTheme.typography.titleLarge, color = pal.gold)
+                }
             }
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Tile("الاستمرار الحالي", "${st.currentStreak} يوم", Modifier.weight(1f))
-            Tile("أطول استمرار", "${st.longestStreak} يوم", Modifier.weight(1f))
+            Stat("أيام الحفظ", st.memoDays.ar(), Modifier.weight(1f))
+            Stat("إجازة وعذر", st.offDays.ar(), Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Tile("أيام الحفظ", "${st.memoDays}", Modifier.weight(1f))
-            Tile("أيام الإجازة والعذر", "${st.offDays}", Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Tile("أيام الغياب", "${st.missedDays}", Modifier.weight(1f), warn = st.missedDays > 0)
-            Tile("الغياب هذا الشهر", "${st.missedThisMonth}", Modifier.weight(1f), warn = st.missedThisMonth > 0)
+            Stat("أيام الغياب", st.missedDays.ar(), Modifier.weight(1f), if (st.missedDays > 0) pal.warn else pal.ink)
+            Stat("غياب هذا الشهر", st.missedThisMonth.ar(), Modifier.weight(1f), if (st.missedThisMonth > 0) pal.warn else pal.ink)
         }
 
-        Text("آخر ٢٨ يومًا", fontWeight = FontWeight.SemiBold)
-        LastDays(s)
-        Legend()
-        Spacer(Modifier.height(16.dp))
+        SectionTitle("آخر ٢٨ يومًا")
+        Panel(Modifier.fillMaxWidth()) {
+            LastDays(s)
+            Spacer(Modifier.height(14.dp))
+            Legend()
+        }
+        Spacer(Modifier.height(12.dp))
     }
 }
 
 private fun amountLabel(n: Int) = when (n) {
     1 -> "وجه"
     2 -> "وجهين"
-    else -> "$n أوجه"
-}
-
-@Composable
-private fun Tile(title: String, value: String, modifier: Modifier, warn: Boolean = false) {
-    Card(shape = RoundedCornerShape(18.dp), modifier = modifier) {
-        Column(Modifier.padding(14.dp)) {
-            Text(title, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(
-                value, fontSize = 24.sp, fontWeight = FontWeight.Bold,
-                color = if (warn) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-            )
-        }
-    }
+    else -> "${n.ar()} أوجه"
 }
 
 @Composable
@@ -121,41 +140,45 @@ private fun LastDays(s: UiState) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         days.chunked(7).forEach { week ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                week.forEach { d -> DayDot(d, dayColor(d, byDate[d]?.kind, start, s.planDate)) }
+                week.forEach { d ->
+                    val (bg, fg) = dayColors(d, byDate[d]?.kind, start, s.planDate)
+                    Box(
+                        Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(bg),
+                        contentAlignment = Alignment.Center,
+                    ) { Text(d.dayOfMonth.ar(), style = MaterialTheme.typography.labelMedium, color = fg) }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun dayColor(d: LocalDate, kind: DayKind?, start: LocalDate, today: LocalDate): Color = when {
-    kind == DayKind.MEMO -> MaterialTheme.colorScheme.primary
-    kind == DayKind.OFF -> MaterialTheme.colorScheme.secondary
-    d.isBefore(start) || !d.isBefore(today) -> MaterialTheme.colorScheme.surfaceVariant
-    else -> MaterialTheme.colorScheme.error.copy(alpha = .75f)
-}
-
-@Composable
-private fun DayDot(d: LocalDate, color: Color) {
-    Box(
-        Modifier.size(38.dp).clip(RoundedCornerShape(10.dp)).background(color),
-        contentAlignment = Alignment.Center,
-    ) { Text("${d.dayOfMonth}", fontSize = 12.sp, color = Color.White) }
+private fun dayColors(d: LocalDate, kind: DayKind?, start: LocalDate, today: LocalDate): Pair<Color, Color> {
+    val pal = LocalPalette.current
+    return when {
+        kind == DayKind.MEMO -> MaterialTheme.colorScheme.primary to Color.White
+        kind == DayKind.OFF -> pal.gold to Color.White
+        d == today -> pal.goldSoft to pal.ink
+        d.isBefore(start) || d.isAfter(today) -> MaterialTheme.colorScheme.surfaceVariant to pal.muted
+        else -> pal.warn.copy(alpha = .8f) to Color.White
+    }
 }
 
 @Composable
 private fun Legend() {
-    Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    val pal = LocalPalette.current
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
         LegendItem(MaterialTheme.colorScheme.primary, "حفظ")
-        LegendItem(MaterialTheme.colorScheme.secondary, "إجازة")
-        LegendItem(MaterialTheme.colorScheme.error.copy(alpha = .75f), "غياب")
+        LegendItem(pal.gold, "إجازة")
+        LegendItem(pal.warn.copy(alpha = .8f), "غياب")
     }
 }
 
 @Composable
 private fun LegendItem(c: Color, label: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(12.dp).clip(RoundedCornerShape(3.dp)).background(c))
-        Text("  $label", fontSize = 13.sp)
+        Box(Modifier.size(12.dp).clip(RoundedCornerShape(4.dp)).background(c))
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.bodySmall, color = LocalPalette.current.muted)
     }
 }

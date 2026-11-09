@@ -1,35 +1,33 @@
 package com.fisudur.app.ui
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.BeachAccess
 import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.WbTwilight
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,266 +38,359 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.fisudur.app.AppViewModel
+import com.fisudur.app.Actions
 import com.fisudur.app.Step
 import com.fisudur.app.StepAction
 import com.fisudur.app.UiState
+import com.fisudur.app.UpdateState
 import com.fisudur.app.engine.DayKind
 import java.time.Duration
 
 @Composable
-fun HomeScreen(s: UiState, vm: AppViewModel, openCounter: () -> Unit, openRecordings: () -> Unit) {
+fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit, openRecordings: () -> Unit) {
     var confirmFinish by remember { mutableStateOf(false) }
     LazyColumn(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        Modifier.fillMaxWidth(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        item { Spacer(Modifier.height(4.dp)) }
-        item { DayCard(s) }
-        item { AmountRow(s, vm) }
-        item { PlanHeader(s) }
+        item { Header(s) }
+        if (s.update is UpdateState.Available || s.update is UpdateState.Downloading || s.update is UpdateState.Ready) {
+            item { UpdateBanner(s.update, a) }
+        }
+        item { DayHero(s) }
+        item { WirdCard(s, a) }
         if (s.doneToday != null) {
-            item { DoneCard(s, vm) }
+            item { DoneCard(s, a) }
         } else {
-            itemsIndexed(s.steps) { i, step ->
-                StepRow(i + 1, step, step.id in s.progress.checked, s) {
-                    when (step.action) {
-                        StepAction.COUNTER -> openCounter()
-                        StepAction.RECORD -> openRecordings()
-                        StepAction.CHECK -> vm.toggle(step.id)
-                    }
+            item {
+                SectionTitle("خطوات اليوم") {
+                    Text(
+                        "${s.checkedCount.ar()} من ${s.steps.size.ar()}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = LocalPalette.current.gold,
+                    )
                 }
             }
-            item {
-                Button(
-                    onClick = { if (s.allChecked) vm.finishDay() else confirmFinish = true },
-                    modifier = Modifier.fillMaxWidth().height(52.dp),
-                ) { Text("إنهاء اليوم", fontSize = 17.sp) }
-            }
-            item { OffDayToggle(s, vm) }
+            item { Timeline(s, a, openCounter, openRecordings) }
+            item { FinishButton(s) { if (s.allChecked) a.finishDay() else confirmFinish = true } }
+            item { OffDayToggle(s, a) }
         }
-        item { Spacer(Modifier.height(16.dp)) }
+        item { Spacer(Modifier.height(12.dp)) }
     }
     if (confirmFinish) {
         AlertDialog(
             onDismissRequest = { confirmFinish = false },
             title = { Text("لم تكمل كل الخطوات") },
             text = { Text("هل تريد إنهاء اليوم على كل حال؟ سيُحسب اليوم منجزًا.") },
-            confirmButton = { TextButton(onClick = { confirmFinish = false; vm.finishDay() }) { Text("إنهاء") } },
+            confirmButton = { TextButton(onClick = { confirmFinish = false; a.finishDay() }) { Text("إنهاء اليوم") } },
             dismissButton = { TextButton(onClick = { confirmFinish = false }) { Text("رجوع") } },
         )
     }
 }
 
-private fun <T> androidx.compose.foundation.lazy.LazyListScope.itemsIndexed(
-    list: List<T>,
-    content: @Composable (Int, T) -> Unit,
-) = items(list.size) { i -> content(i, list[i]) }
+@Composable
+private fun Header(s: UiState) {
+    val pal = LocalPalette.current
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("في صدور", style = MaterialTheme.typography.headlineLarge, color = pal.ink)
+            Text(
+                if (s.plan.round > 0) "اليوم ${s.plan.planDay.ar()} · الجولة ${s.plan.round.ar()}" else "اليوم ${s.plan.planDay.ar()} من الخطة",
+                style = MaterialTheme.typography.bodyMedium,
+                color = pal.muted,
+            )
+        }
+        Ring(
+            progress = s.stats.percent / 100f,
+            modifier = Modifier.size(54.dp),
+            color = pal.gold,
+            track = pal.line,
+            width = 4.dp,
+        ) {
+            Text("${s.stats.percent.ar()}٪", style = MaterialTheme.typography.labelMedium, color = pal.ink)
+        }
+    }
+}
 
 @Composable
-private fun DayCard(s: UiState) {
+private fun DayHero(s: UiState) {
+    val pal = LocalPalette.current
     val clock = s.clock
-    val end = clock.dayEnd(s.now)
     val start = clock.dayStart(s.now)
+    val end = clock.dayEnd(s.now)
     val remaining = clock.remaining(s.now)
     val total = Duration.between(start, end).seconds.toFloat()
     val elapsed = (total - remaining.seconds).coerceIn(0f, total)
-    Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
-        shape = RoundedCornerShape(24.dp),
-    ) {
-        Column(Modifier.fillMaxWidth().padding(20.dp)) {
-            Text("يومك", color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .75f), fontSize = 14.sp)
-            Text(
-                Fmt.date(s.planDate),
-                color = MaterialTheme.colorScheme.onPrimary,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-            )
-            Spacer(Modifier.height(14.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    Fmt.countdown(remaining),
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.Bold,
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    "متبقٍ على نهاية اليوم",
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .8f),
-                    modifier = Modifier.padding(bottom = 6.dp),
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-            LinearProgressIndicator(
-                progress = { if (total > 0) elapsed / total else 0f },
-                modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
-                color = MaterialTheme.colorScheme.secondary,
-                trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = .2f),
-            )
-            Spacer(Modifier.height(8.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    "بدأ ${Fmt.time(start.toLocalTime())}",
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .7f), fontSize = 13.sp,
-                )
-                Text(
-                    "ينتهي ${Fmt.time(end.toLocalTime())}",
-                    color = MaterialTheme.colorScheme.onPrimary.copy(alpha = .7f), fontSize = 13.sp,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun AmountRow(s: UiState, vm: AppViewModel) {
-    if (s.doneToday != null || s.plan.kind == DayKind.OFF || s.plan.memorizationDone) return
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("مقدار الحفظ:", fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.width(8.dp))
-        listOf(1 to "وجه", 2 to "وجهان", 3 to "٣ أوجه").forEach { (n, label) ->
-            FilterChip(
-                selected = s.settings.amount == n,
-                onClick = { vm.saveSettings(s.settings.copy(amount = n)) },
-                label = { Text(label) },
-                modifier = Modifier.padding(end = 6.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun PlanHeader(s: UiState) {
-    val p = s.plan
-    Card(shape = RoundedCornerShape(20.dp)) {
-        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("خطة اليوم", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Badge("اليوم ${p.planDay}")
-                if (p.round > 0) {
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(pal.hero)) {
+        KhatamPattern(Modifier.matchParentSize(), color = pal.gold.copy(alpha = .09f))
+        Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("يومك", style = MaterialTheme.typography.labelLarge, color = pal.gold)
+                Text(Fmt.day(s.planDate.dayOfWeek), style = MaterialTheme.typography.displaySmall, color = pal.onHero)
+                Text(Fmt.shortDate(s.planDate).ar(), style = MaterialTheme.typography.bodyLarge, color = pal.onHeroMuted)
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.WbTwilight, null, tint = pal.gold, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Badge("الجولة ${p.round}")
+                    Text(
+                        "من ${Fmt.time(start.toLocalTime()).ar()} إلى ${Fmt.time(end.toLocalTime()).ar()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = pal.onHeroMuted,
+                    )
                 }
             }
-            Spacer(Modifier.height(10.dp))
+            Ring(
+                progress = if (total > 0) elapsed / total else 0f,
+                modifier = Modifier.size(128.dp),
+                color = pal.gold,
+                track = Color.White.copy(alpha = .14f),
+                width = 7.dp,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(Fmt.countdown(remaining).ar(), style = MaterialTheme.typography.titleLarge, color = pal.onHero)
+                    Text("متبقٍ", style = MaterialTheme.typography.labelMedium, color = pal.onHeroMuted)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WirdCard(s: UiState, a: Actions) {
+    val pal = LocalPalette.current
+    val p = s.plan
+    Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
+        Column(
+            Modifier.fillMaxWidth().padding(6.dp)
+                .border(1.dp, pal.gold.copy(alpha = .45f), RoundedCornerShape(20.dp))
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("وِرد اليوم", style = MaterialTheme.typography.labelLarge, color = pal.gold)
             val newPages = p.newPages
             when {
-                p.kind == DayKind.OFF -> Text(
-                    "يوم إجازة: ربط ومراجعة فقط، بلا حفظ جديد.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                newPages != null -> {
-                    Text("رقم الوجه", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
-                    Text(newPages.label, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                    Text("سورة ${newPages.surahs}", color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.SemiBold)
+                p.kind == DayKind.OFF -> {
+                    Text("يوم إجازة", style = MaterialTheme.typography.displaySmall, color = pal.ink)
+                    Text("ربط ومراجعة فقط، بلا حفظ جديد", style = MaterialTheme.typography.bodyMedium, color = pal.muted)
                 }
-                else -> Text("أتممت حفظ المصحف، بارك الله لك. يستمر الربط والمراجعة.")
+                newPages != null -> {
+                    Text(
+                        if (newPages.from == newPages.to) newPages.from.ar() else "${newPages.from.ar()} – ${newPages.to.ar()}",
+                        style = MaterialTheme.typography.displayLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Text("سورة ${newPages.surahs}", style = MaterialTheme.typography.headlineSmall, color = pal.ink)
+                    Text(
+                        "${if (newPages.count == 1) "وجه واحد" else "${newPages.count.ar()} أوجه"} · تكرار ${p.repetitions.ar()} مرة",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = pal.muted,
+                    )
+                }
+                else -> {
+                    Text("خُتم الحفظ", style = MaterialTheme.typography.displaySmall, color = pal.ink)
+                    Text("بارك الله لك. يستمر الربط والمراجعة.", style = MaterialTheme.typography.bodyMedium, color = pal.muted)
+                }
+            }
+            Ornament(Modifier.padding(vertical = 12.dp))
+            if (s.doneToday == null && p.kind == DayKind.MEMO && !p.memorizationDone) {
+                Text("مقدار الحفظ", style = MaterialTheme.typography.labelMedium, color = pal.muted)
+                Spacer(Modifier.height(6.dp))
+                Segmented(
+                    options = listOf("وجه", "وجهان", "٣ أوجه"),
+                    selected = (s.settings.amount - 1).coerceIn(0, 2),
+                    onSelect = { a.saveSettings(s.settings.copy(amount = it + 1)) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                val done = s.checkedCount
+                LinearProgressIndicator(
+                    progress = { if (s.steps.isEmpty()) 1f else done / s.steps.size.toFloat() },
+                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                    color = pal.gold,
+                    trackColor = pal.line,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun Badge(text: String) {
-    Box(
-        Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.secondaryContainer)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-    ) { Text(text, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSecondaryContainer) }
+private fun Timeline(s: UiState, a: Actions, openCounter: () -> Unit, openRecordings: () -> Unit) {
+    Column {
+        s.steps.forEachIndexed { i, step ->
+            TimelineRow(
+                step = step,
+                checked = step.id in s.progress.checked,
+                first = i == 0,
+                last = i == s.steps.lastIndex,
+                counter = s.progress.counter,
+                onOpen = {
+                    when (step.action) {
+                        StepAction.COUNTER -> openCounter()
+                        StepAction.RECORD -> openRecordings()
+                        StepAction.CHECK -> a.toggle(step.id)
+                    }
+                },
+                onCheck = { a.toggle(step.id) },
+            )
+        }
+    }
 }
 
 @Composable
-private fun StepRow(n: Int, step: Step, checked: Boolean, s: UiState, onClick: () -> Unit) {
-    Card(
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = if (checked) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-        ),
-        elevation = CardDefaults.cardElevation(1.dp),
-    ) {
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun TimelineRow(
+    step: Step,
+    checked: Boolean,
+    first: Boolean,
+    last: Boolean,
+    counter: Int,
+    onOpen: () -> Unit,
+    onCheck: () -> Unit,
+) {
+    val pal = LocalPalette.current
+    val node by animateColorAsState(if (checked) pal.gold else pal.card, label = "node")
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        // the rail
+        Box(Modifier.width(36.dp).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+            Column(Modifier.fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(Modifier.width(2.dp).height(22.dp).background(if (first) Color.Transparent else pal.line))
+                Box(Modifier.width(2.dp).weight(1f).background(if (last) Color.Transparent else pal.line))
+            }
             Box(
-                Modifier.size(34.dp).clip(CircleShape).background(
-                    if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                ),
+                Modifier.padding(top = 12.dp).size(22.dp).clip(CircleShape).background(node)
+                    .border(2.dp, if (checked) pal.gold else pal.line, CircleShape)
+                    .clickable(onClick = onCheck),
                 contentAlignment = Alignment.Center,
             ) {
-                if (checked) Icon(Icons.Filled.Check, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(20.dp))
-                else Text("$n", fontWeight = FontWeight.Bold)
+                if (checked) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
             }
+        }
+        Spacer(Modifier.width(8.dp))
+        // the card
+        Row(
+            Modifier.weight(1f).padding(bottom = 10.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(if (checked) pal.goldSoft.copy(alpha = .55f) else pal.card)
+                .border(1.dp, if (checked) pal.gold.copy(alpha = .35f) else pal.line, RoundedCornerShape(20.dp))
+                .clickable(onClick = onOpen)
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            IconBadge(
+                stepIcon(step.kind),
+                bg = if (checked) pal.gold else MaterialTheme.colorScheme.primaryContainer,
+                fg = if (checked) Color.White else MaterialTheme.colorScheme.primary,
+            )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(step.title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
-                Text(step.times, color = MaterialTheme.colorScheme.secondary, fontSize = 14.sp)
-                step.detail?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp) }
+                Text(step.title, style = MaterialTheme.typography.titleMedium, color = pal.ink)
+                Text(step.times.ar(), style = MaterialTheme.typography.bodySmall, color = pal.gold)
+                if (step.pages != null) {
+                    Text(
+                        "${step.pages.ar()} · ${step.surahs}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = pal.muted,
+                    )
+                }
                 if (step.action == StepAction.COUNTER) {
-                    Text("العداد: ${s.progress.counter} / ${step.target}", fontSize = 13.sp)
+                    Spacer(Modifier.height(6.dp))
+                    LinearProgressIndicator(
+                        progress = { if (step.target > 0) (counter.toFloat() / step.target).coerceAtMost(1f) else 0f },
+                        modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
+                        color = pal.gold,
+                        trackColor = pal.line,
+                    )
+                    Text("${counter.ar()} / ${step.target.ar()}", style = MaterialTheme.typography.labelSmall, color = pal.muted)
                 }
             }
-            when (step.action) {
-                StepAction.CHECK -> Checkbox(checked = checked, onCheckedChange = { onClick() })
-                else -> Icon(Icons.Outlined.ChevronLeft, null)
+            if (step.action != StepAction.CHECK) {
+                Icon(Icons.Outlined.ChevronLeft, null, tint = pal.muted)
             }
         }
     }
 }
 
 @Composable
-private fun DoneCard(s: UiState, vm: AppViewModel) {
-    Card(
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+private fun FinishButton(s: UiState, onClick: () -> Unit) {
+    val pal = LocalPalette.current
+    val ready = s.allChecked
+    Box(
+        Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(50))
+            .background(
+                if (ready) Brush.horizontalGradient(listOf(Color(0xFFB8873A), pal.gold, Color(0xFFE2BE72)))
+                else Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary)),
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
-        Column(Modifier.fillMaxWidth().padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Filled.Check, null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.secondary)
-            Text("أنجزت يومك", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+        Text(
+            if (ready) "أتممت خطوات اليوم · إنهاء اليوم" else "إنهاء اليوم",
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White,
+        )
+    }
+}
+
+@Composable
+private fun DoneCard(s: UiState, a: Actions) {
+    val pal = LocalPalette.current
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(pal.hero)) {
+        KhatamPattern(Modifier.matchParentSize(), color = pal.gold.copy(alpha = .09f))
+        Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(64.dp).clip(CircleShape).background(pal.gold), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(34.dp))
+            }
+            Spacer(Modifier.height(10.dp))
+            Text("أنجزت يومك", style = MaterialTheme.typography.headlineLarge, color = pal.onHero)
             val pages = s.doneToday?.pages
             Text(
-                if (pages != null) "حفظت ${pages.label} (${pages.surahs})" else "يوم ربط ومراجعة",
+                if (pages != null) "حفظت ${pages.label.ar()} من سورة ${pages.surahs}" else "يوم ربط ومراجعة",
+                style = MaterialTheme.typography.bodyLarge,
+                color = pal.onHeroMuted,
                 textAlign = TextAlign.Center,
             )
             Text(
-                "يبدأ يومك التالي ${Fmt.time(s.clock.dayEnd(s.now).toLocalTime())}",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 13.sp,
+                "يبدأ يومك التالي ${Fmt.time(s.clock.dayEnd(s.now).toLocalTime()).ar()}",
+                style = MaterialTheme.typography.bodySmall,
+                color = pal.onHeroMuted,
             )
-            TextButton(onClick = { vm.undoFinish() }) { Text("تراجع عن الإنهاء") }
+            TextButton(onClick = a::undoFinish) { Text("تراجع عن الإنهاء", color = pal.gold) }
         }
     }
 }
 
 @Composable
-private fun OffDayToggle(s: UiState, vm: AppViewModel) {
+private fun OffDayToggle(s: UiState, a: Actions) {
+    val pal = LocalPalette.current
     val weeklyOff = s.planDate.dayOfWeek in s.settings.offWeekdays
     val isOff = s.plan.kind == DayKind.OFF
-    OutlinedButton(
+    TextButton(
         onClick = {
-            vm.setTodayKind(
+            a.setTodayKind(
                 when {
-                    isOff && weeklyOff -> DayKind.MEMO // memorize on a weekly off day
-                    isOff -> null // back to normal
+                    isOff && weeklyOff -> DayKind.MEMO
+                    isOff -> null
                     weeklyOff -> null
-                    else -> DayKind.OFF // sickness or travel
+                    else -> DayKind.OFF
                 },
             )
         },
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Icon(Icons.Outlined.BeachAccess, null)
-        Spacer(Modifier.width(8.dp))
         Text(
             when {
                 isOff && weeklyOff -> "أريد الحفظ اليوم رغم الإجازة"
                 isOff -> "إلغاء الإجازة والعودة للحفظ"
                 weeklyOff -> "العودة إلى يوم الإجازة"
-                else -> "اجعل اليوم إجازة (مرض أو سفر)"
+                else -> "اجعل اليوم إجازة لعذر (مرض أو سفر)"
             },
+            style = MaterialTheme.typography.labelLarge,
+            color = pal.muted,
         )
     }
 }
