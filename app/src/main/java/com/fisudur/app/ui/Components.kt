@@ -162,13 +162,13 @@ fun Ring(
 
 /** The app's card: warm surface, hairline border, generous radius. */
 @Composable
-fun Panel(modifier: Modifier = Modifier, padding: Dp = 18.dp, content: @Composable ColumnScope.() -> Unit) {
+fun Panel(modifier: Modifier = Modifier, padding: Dp = 14.dp, content: @Composable ColumnScope.() -> Unit) {
     val pal = LocalPalette.current
     Column(
         modifier
-            .clip(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(20.dp))
             .background(pal.card)
-            .border(1.dp, pal.line, RoundedCornerShape(24.dp))
+            .border(1.dp, pal.line, RoundedCornerShape(20.dp))
             .padding(padding),
         content = content,
     )

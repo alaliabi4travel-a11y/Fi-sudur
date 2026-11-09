@@ -109,7 +109,7 @@ fun PlanGuide() {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Panel(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }, verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(Icons.Outlined.Lightbulb, pal.goldSoft, pal.gold, size = 40.dp)
+            IconBadge(Icons.Outlined.Lightbulb, pal.goldSoft, pal.gold, size = 36.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("شرح الخطة", style = MaterialTheme.typography.titleMedium, color = pal.ink)
@@ -121,7 +121,7 @@ fun PlanGuide() {
         if (expanded) topics.forEachIndexed { i, t ->
             if (i > 0) HorizontalDivider(color = pal.line)
             Row(
-                Modifier.fillMaxWidth().clickable { open = i }.padding(vertical = 12.dp),
+                Modifier.fillMaxWidth().clickable { open = i }.padding(vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(t.title, style = MaterialTheme.typography.bodyLarge, color = pal.ink, modifier = Modifier.weight(1f))

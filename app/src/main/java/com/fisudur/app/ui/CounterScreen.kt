@@ -80,7 +80,7 @@ fun CounterScreen(s: UiState, a: Actions) {
                 if (volume && e.type == KeyEventType.KeyDown) count1()
                 volume
             }
-            .padding(horizontal = 18.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text("عدّاد التكرار", style = MaterialTheme.typography.headlineLarge, color = pal.ink, modifier = Modifier.padding(top = 6.dp))

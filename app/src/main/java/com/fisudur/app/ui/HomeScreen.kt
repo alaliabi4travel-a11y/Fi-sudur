@@ -56,8 +56,8 @@ fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
     var confirmFinish by remember { mutableStateOf(false) }
     LazyColumn(
         Modifier.fillMaxWidth(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item { Header(s) }
         if (s.update is UpdateState.Available || s.update is UpdateState.Downloading || s.update is UpdateState.Ready) {
@@ -72,7 +72,7 @@ fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
             item { FinishButton(s) { if (s.allChecked) a.finishDay() else confirmFinish = true } }
             item { OffDayToggle(s, a) }
         }
-        item { Spacer(Modifier.height(12.dp)) }
+        item { Spacer(Modifier.height(4.dp)) }
     }
     if (confirmFinish) {
         AlertDialog(
@@ -120,7 +120,7 @@ private fun TodayCard(s: UiState) {
     val reason = s.progress.reason ?: s.doneToday?.reason
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(pal.hero)) {
         KhatamPattern(Modifier.matchParentSize(), color = pal.gold.copy(alpha = .08f))
-        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
@@ -161,18 +161,18 @@ private fun TodayCard(s: UiState) {
                 Spacer(Modifier.width(12.dp))
                 Ring(
                     progress = if (total > 0) elapsed / total else 0f,
-                    modifier = Modifier.size(108.dp),
+                    modifier = Modifier.size(88.dp),
                     color = pal.gold,
                     track = Color.White.copy(alpha = .14f),
                     width = 5.dp,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(Fmt.countdown(remaining).ar(), style = MaterialTheme.typography.titleSmall.copy(fontFamily = Readex), color = pal.onHero, maxLines = 1, softWrap = false)
+                        Text(Fmt.countdown(remaining).ar(), style = MaterialTheme.typography.labelLarge.copy(fontFamily = Readex), color = pal.onHero, maxLines = 1, softWrap = false)
                         Text("حتى ${Fmt.time(end.toLocalTime()).ar()}", style = MaterialTheme.typography.labelSmall, color = pal.onHeroMuted)
                     }
                 }
             }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 LinearProgressIndicator(
                     progress = { if (s.steps.isEmpty()) 1f else s.checkedCount / s.steps.size.toFloat() },
@@ -233,11 +233,11 @@ private fun TimelineRow(
         // the rail
         Box(Modifier.width(28.dp).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.width(2.dp).height(20.dp).background(if (first) Color.Transparent else pal.line))
+                Box(Modifier.width(2.dp).height(18.dp).background(if (first) Color.Transparent else pal.line))
                 Box(Modifier.width(2.dp).weight(1f).background(if (last) Color.Transparent else pal.line))
             }
             Box(
-                Modifier.padding(top = 10.dp).size(20.dp).clip(CircleShape).background(node)
+                Modifier.padding(top = 9.dp).size(20.dp).clip(CircleShape).background(node)
                     .border(2.dp, if (checked) pal.gold else pal.line, CircleShape)
                     .clickable(onClick = onCheck),
                 contentAlignment = Alignment.Center,
@@ -248,42 +248,43 @@ private fun TimelineRow(
         Spacer(Modifier.width(6.dp))
         // the card
         Row(
-            Modifier.weight(1f).padding(bottom = 8.dp)
-                .clip(RoundedCornerShape(18.dp))
+            Modifier.weight(1f).padding(bottom = 6.dp)
+                .clip(RoundedCornerShape(16.dp))
                 .background(if (checked) pal.goldSoft.copy(alpha = .55f) else pal.card)
-                .border(1.dp, if (checked) pal.gold.copy(alpha = .35f) else pal.line, RoundedCornerShape(18.dp))
+                .border(1.dp, if (checked) pal.gold.copy(alpha = .35f) else pal.line, RoundedCornerShape(16.dp))
                 .clickable(onClick = onOpen)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconBadge(
                 stepIcon(step.kind),
                 bg = if (checked) pal.gold else MaterialTheme.colorScheme.primaryContainer,
                 fg = if (checked) Color.White else MaterialTheme.colorScheme.primary,
-                size = 36.dp,
+                size = 32.dp,
             )
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(step.title, style = MaterialTheme.typography.titleMedium, color = pal.ink)
-                Text(step.times.ar(), style = MaterialTheme.typography.bodySmall, color = pal.gold, maxLines = 1)
-                if (step.pages != null) {
-                    Text(
-                        "${step.pages.ar()} · ${step.surahs}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = pal.muted,
-                        maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                    )
+                Text(step.title, style = MaterialTheme.typography.titleSmall, color = pal.ink, maxLines = 1)
+                // One line: how many times, then which pages.
+                val detail = buildString {
+                    append(if (step.action == StepAction.COUNTER) "${counter.ar()} / ${step.target.ar()} مرة" else step.times.ar())
+                    if (step.pages != null) append(" · ${step.pages.ar()} ${step.surahs}")
                 }
+                Text(
+                    detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = pal.muted,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
                 if (step.action == StepAction.COUNTER) {
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(4.dp))
                     LinearProgressIndicator(
                         progress = { if (step.target > 0) (counter.toFloat() / step.target).coerceAtMost(1f) else 0f },
-                        modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
+                        modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape),
                         color = pal.gold,
                         trackColor = pal.line,
                     )
-                    Text("${counter.ar()} / ${step.target.ar()}", style = MaterialTheme.typography.labelSmall, color = pal.muted)
                 }
             }
             if (step.action == StepAction.TALLY) {
@@ -297,7 +298,7 @@ private fun TimelineRow(
                             )
                         }
                     }
-                    Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(2.dp))
                     Text(
                         "${(if (checked) step.target else tally).ar()} / ${step.target.ar()}",
                         style = MaterialTheme.typography.labelSmall,
@@ -316,7 +317,7 @@ private fun FinishButton(s: UiState, onClick: () -> Unit) {
     val pal = LocalPalette.current
     val ready = s.allChecked
     Box(
-        Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(50))
+        Modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(50))
             .background(
                 if (ready) Brush.horizontalGradient(listOf(Color(0xFFB8873A), pal.gold, Color(0xFFE2BE72)))
                 else Brush.horizontalGradient(listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primary)),
@@ -335,14 +336,14 @@ private fun FinishButton(s: UiState, onClick: () -> Unit) {
 @Composable
 private fun DoneCard(s: UiState, a: Actions) {
     val pal = LocalPalette.current
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(pal.hero)) {
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(pal.hero)) {
         KhatamPattern(Modifier.matchParentSize(), color = pal.gold.copy(alpha = .09f))
-        Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.size(64.dp).clip(CircleShape).background(pal.gold), contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(34.dp))
+        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(44.dp).clip(CircleShape).background(pal.gold), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(26.dp))
             }
-            Spacer(Modifier.height(10.dp))
-            Text("أنجزت يومك", style = MaterialTheme.typography.headlineLarge, color = pal.onHero)
+            Spacer(Modifier.height(6.dp))
+            Text("أنجزت يومك", style = MaterialTheme.typography.headlineMedium, color = pal.onHero)
             val pages = s.doneToday?.pages
             Text(
                 if (pages != null) "حفظت ${if (pages.from == pages.to) "الوجه" else "الأوجه"} ${pages.label.ar()} من سورة ${pages.surahs}" else "يوم إجازة: تكرار وربط ومراجعة",
@@ -446,7 +447,7 @@ private fun OffDayToggle(s: UiState, a: Actions) {
                     else -> choosing = true
                 }
             }
-            .padding(vertical = 14.dp, horizontal = 16.dp),
+            .padding(vertical = 10.dp, horizontal = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(

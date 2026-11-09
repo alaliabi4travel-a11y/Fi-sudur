@@ -71,8 +71,8 @@ fun SettingsScreen(s: UiState, a: Actions) {
     }
 
     Column(
-        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         ScreenTitle("الإعدادات", "أي تغيير هنا يُعيد حساب الخطة فورًا")
         PlanGuide()
@@ -208,7 +208,7 @@ fun SettingsScreen(s: UiState, a: Actions) {
         }
 
         OutlineAction("بدء خطة جديدة (حذف السجل)", danger = true) { confirmReset = true }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(4.dp))
     }
 
     pendingStart?.let { p ->
@@ -237,15 +237,15 @@ private fun Section(icon: ImageVector, title: String, subtitle: String?, content
     val pal = LocalPalette.current
     Panel(Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconBadge(icon, pal.goldSoft, pal.gold, size = 40.dp)
+            IconBadge(icon, pal.goldSoft, pal.gold, size = 36.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = pal.ink)
                 subtitle?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = pal.muted) }
             }
         }
-        Spacer(Modifier.height(14.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) { content() }
+        Spacer(Modifier.height(10.dp))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) { content() }
     }
 }
 
@@ -256,7 +256,7 @@ private fun OutlineAction(text: String, danger: Boolean = false, enabled: Boolea
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
             .border(1.dp, if (danger) pal.warn.copy(alpha = .5f) else pal.line, RoundedCornerShape(18.dp))
-            .clickable(enabled = enabled, onClick = onClick).padding(vertical = 14.dp),
+            .clickable(enabled = enabled, onClick = onClick).padding(vertical = 11.dp),
         horizontalArrangement = Arrangement.Center,
     ) { Text(text, style = MaterialTheme.typography.labelLarge, color = if (enabled) color else pal.muted) }
 }

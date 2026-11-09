@@ -45,18 +45,18 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
     val pal = LocalPalette.current
     var picked by remember { mutableStateOf<LocalDate?>(null) }
     Column(
-        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         ScreenTitle("إحصائياتي", "مسيرتك مع كتاب الله")
 
         // Hero: pages memorized with a big ring.
         Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(pal.hero)) {
             KhatamPattern(Modifier.matchParentSize(), color = pal.gold.copy(alpha = .09f))
-            Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("المحفوظ", style = MaterialTheme.typography.labelLarge, color = pal.gold)
-                    Text(st.pagesMemorized.ar(), style = MaterialTheme.typography.displayLarge, color = pal.onHero)
+                    Text(st.pagesMemorized.ar(), style = MaterialTheme.typography.displayMedium, color = pal.onHero)
                     Text("من ٦٠٤ في المصحف", style = MaterialTheme.typography.bodyLarge, color = pal.onHeroMuted)
                     Spacer(Modifier.height(8.dp))
                     Text(
@@ -67,7 +67,7 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
                 }
                 Ring(
                     progress = st.percent / 100f,
-                    modifier = Modifier.size(120.dp),
+                    modifier = Modifier.size(96.dp),
                     color = pal.gold,
                     track = Color.White.copy(alpha = .14f),
                     width = 8.dp,
@@ -106,11 +106,11 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
         val excused = s.history.filter { it.kind == DayKind.OFF && it.reason != null }
         val byReason = excused.groupingBy { it.reason!! }.eachCount()
         SectionTitle("سجل الأيام")
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             DayTile("حفظ", st.memoDays, pal.done, null, Modifier.weight(1f))
             DayTile("إجازة", leave, pal.gold, null, Modifier.weight(1f))
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             DayTile(
                 "عذر", excused.size, pal.excuse,
                 listOf("عمل", "سفر", "مرض").mapNotNull { r -> byReason[r]?.let { "$r ${it.ar()}" } }.joinToString(" · ").ifEmpty { null },
@@ -147,7 +147,7 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
             Spacer(Modifier.height(8.dp))
             Text("اضغط يوم التفريط لتسجيله إن كنت حفظت فيه أو كان لك عذر.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(4.dp))
     }
 
     picked?.let { d ->
@@ -230,7 +230,7 @@ private fun Legend() {
 @Composable
 private fun DayTile(label: String, count: Int, color: Color, note: String?, modifier: Modifier) {
     val pal = LocalPalette.current
-    Panel(modifier, padding = 16.dp) {
+    Panel(modifier, padding = 12.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(color))
             Spacer(Modifier.width(8.dp))
@@ -238,7 +238,7 @@ private fun DayTile(label: String, count: Int, color: Color, note: String?, modi
         }
         Spacer(Modifier.height(2.dp))
         Text(count.ar(), style = MaterialTheme.typography.headlineMedium, color = pal.ink)
-        Text(note ?: " ", style = MaterialTheme.typography.bodySmall, color = pal.muted, maxLines = 1)
+        note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = pal.muted, maxLines = 1) }
     }
 }
 
