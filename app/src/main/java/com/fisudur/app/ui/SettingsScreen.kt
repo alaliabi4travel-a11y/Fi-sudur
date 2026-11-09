@@ -75,6 +75,7 @@ fun SettingsScreen(s: UiState, a: Actions) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         ScreenTitle("الإعدادات", "كل تغيير يُعاد به حساب الخطة فورًا")
+        PlanGuide()
 
         Section(Icons.Outlined.MenuBook, "مقدار الحفظ اليومي", "غيّره متى شئت، ويُعاد حساب الربط والمراجعة تلقائيًا.") {
             Segmented(

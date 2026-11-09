@@ -1,0 +1,135 @@
+package com.fisudur.app.ui
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+
+private class Topic(val title: String, val body: String)
+
+private val topics = listOf(
+    Topic(
+        "فكرة الخطة",
+        "تحفظ كل يوم قدرًا ثابتًا: وجهًا أو وجهين أو ثلاثة. ومع الجديد تكرر حفظ الأمس، وتربط ما حفظته في الأيام الأخيرة، وتراجع ما قبله.\n\n" +
+            "بهذا يبقى كل ما حفظته حاضرًا: القريب يُقرأ كل يوم في الربط، والبعيد يدور عليه دور المراجعة.\n\n" +
+            "التطبيق يحسب كل ذلك وحده، فلا تحتاج إلا أن تتبع خطوات اليوم بالترتيب.",
+    ),
+    Topic(
+        "الحفظ الجديد",
+        "خطوات الأوجه الجديدة بالترتيب:\n\n" +
+            "١. اقرأ التفسير مرة واحدة، لتفهم المعنى قبل الحفظ.\n" +
+            "٢. استمع إلى القارئ ٣ مرات وأنت تنظر في المصحف، لتضبط النطق.\n" +
+            "٣. سجّل غيبًا لتأكيد الحفظ: ٣ مرات متتالية بلا خطأ.\n" +
+            "٤. كرّر لتثبيت الحفظ: ٤٠ مرة (أو ٣٠ لمن يحفظ ثلاثة أوجه)، بالعداد داخل التطبيق. تظهر علامة الصح حين يكتمل العدد.",
+    ),
+    Topic(
+        "تكرار الأمس",
+        "تقرأ ما حفظته أمس ٥ مرات غيبًا، قبل أن تبدأ بالجديد.\n\n" +
+            "هذا أهم ما يثبّت الحفظ، لأن الأوجه تكون في اليوم التالي أسرع ما تكون إلى النسيان.\n\n" +
+            "إذا كان اليوم إجازة وكان أمس يوم حفظ، يبقى تكرار الأمس في خطوات الإجازة.",
+    ),
+    Topic(
+        "الربط",
+        "الربط قراءة ما حفظته في الأيام الأخيرة مرة واحدة غيبًا كل يوم، من أوله إلى ما قبل حفظ الأمس.\n\n" +
+            "يكبر الربط يومًا بعد يوم، حتى تبدأ الجولات، فتخرج منه الأوجه القديمة إلى المراجعة ويبقى فيه القريب فقط.\n\n" +
+            "فائدته أن يتصل الجديد بما قبله، فتقرأ السورة متصلة لا قطعًا متفرقة.",
+    ),
+    Topic(
+        "المراجعة والجولات",
+        "تبدأ المراجعة في اليوم ٣٣ من الخطة.\n\n" +
+            "كل جولة ٦ أيام. في بدايتها ينتقل ما حُفظ في أول الخطة من الربط إلى «المحفوظ القديم»، ويُقسَم على ٦ أجزاء، فتراجع جزءًا منه كل يوم غيبًا.\n\n" +
+            "فإذا انتهت الجولة بدأت التي بعدها، وقد زاد المحفوظ القديم. بهذا يمر عليك كل ما حفظته مرة كل ٦ أيام.\n\n" +
+            "المراجعة آخر خطوات اليوم.",
+    ),
+    Topic(
+        "التفسير",
+        "اقرأ تفسير الأوجه الجديدة قبل حفظها، من «التفسير الميسّر» أو «المختصر في التفسير». كلاهما قصير وواضح.\n\n" +
+            "فهم المعنى يجعل الحفظ أسرع وأبقى، ويقلّل الخلط بين الآيات المتشابهة.",
+    ),
+    Topic(
+        "الإجازة والعذر",
+        "الإجازة يوم راحة أسبوعي تختاره من الإعدادات، كالجمعة. لا حفظ جديد فيه، لكن الربط والمراجعة يستمران، وتكرار الأمس إن كان أمس يوم حفظ.\n\n" +
+            "العذر يوم تتركه لسبب: عمل أو سفر أو مرض. تختاره من زر «اجعل اليوم إجازة لعذر» في الرئيسية، ثم تختار السبب.\n\n" +
+            "أيام الإجازة والعذر لا تقدّم الخطة، فلا يضيع عليك شيء منها.",
+    ),
+    Topic(
+        "التفريط وتسجيل الأيام الفائتة",
+        "التفريط يوم انتهى دون أن يُسجَّل فيه حفظ ولا عذر.\n\n" +
+            "إذا أكملت كل الخطوات ونسيت «إنهاء اليوم»، يسجّله التطبيق حفظًا وحده عند نهاية اليوم.\n\n" +
+            "وإذا فاتك يوم وكنت قد حفظت فيه أو كان لك عذر، اضغطه في تقويم «آخر ٢٨ يومًا» في إحصائياتي وسجّله.",
+    ),
+    Topic(
+        "نهاية اليوم",
+        "يومك في التطبيق لا ينتهي عند منتصف الليل، بل عند الوقت الذي تختاره في الإعدادات، مثل ٤ فجرًا. فمن يحفظ بعد العشاء أو في آخر الليل يبقى في يومه نفسه.\n\n" +
+            "العدّ التنازلي في الرئيسية يُظهر ما بقي من اليوم. وبعد إنهاء اليوم تظهر خانة «ورد الغد»، فتنظر فيه وتبدأ ببعضه إن شئت.",
+    ),
+    Topic(
+        "تغيير المقدار",
+        "تستطيع تغيير المقدار بين وجه ووجهين وثلاثة في أي وقت من الإعدادات.\n\n" +
+            "يبدأ المقدار الجديد من اليوم، ويُعاد حساب الربط والمراجعة وموعد الختم وحدها، ولا يتغير شيء مما حفظته قبل.",
+    ),
+)
+
+/** The plan explained, one topic per row; each opens in a window. */
+@Composable
+fun PlanGuide() {
+    val pal = LocalPalette.current
+    var open by rememberSaveable { mutableStateOf(-1) }
+    Panel(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconBadge(Icons.Outlined.Lightbulb, pal.goldSoft, pal.gold, size = 40.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("شرح الخطة", style = MaterialTheme.typography.titleMedium, color = pal.ink)
+                Text("كيف يعمل الحفظ والربط والمراجعة", style = MaterialTheme.typography.bodySmall, color = pal.muted)
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        topics.forEachIndexed { i, t ->
+            if (i > 0) HorizontalDivider(color = pal.line)
+            Row(
+                Modifier.fillMaxWidth().clickable { open = i }.padding(vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(t.title, style = MaterialTheme.typography.bodyLarge, color = pal.ink, modifier = Modifier.weight(1f))
+                Icon(Icons.Outlined.ChevronLeft, null, tint = pal.muted)
+            }
+        }
+    }
+    topics.getOrNull(open)?.let { t ->
+        AlertDialog(
+            onDismissRequest = { open = -1 },
+            title = { Text(t.title) },
+            text = {
+                Column(Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                    Text(t.body, style = MaterialTheme.typography.bodyLarge, color = pal.ink)
+                }
+            },
+            confirmButton = { TextButton(onClick = { open = -1 }) { Text("تم") } },
+        )
+    }
+}
