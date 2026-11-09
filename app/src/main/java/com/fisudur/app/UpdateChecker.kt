@@ -13,7 +13,7 @@ data class UpdateInfo(val versionCode: Int, val versionName: String, val apkUrl:
  * "v<versionName>" and the release body carries "versionCode=<n>".
  */
 object UpdateChecker {
-    const val REPO = "alaliabi4travel-a11y/fi-sudur"
+    const val REPO = "alaliabi4travel-a11y/Fi-sudur"
 
     suspend fun latest(): Result<UpdateInfo?> = withContext(Dispatchers.IO) {
         runCatching {
