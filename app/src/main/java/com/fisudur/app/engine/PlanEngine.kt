@@ -7,36 +7,23 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 /**
- * The scheduling rules shared by the three printed plans (one page, two pages,
- * three pages a day). They differ only in the daily amount, so the same rules
- * work when the amount changes in the middle of the plan.
- *
- * Plan day d (1-based) is the d-th day that counts toward the plan:
- *  - New pages: the next [amount] pages after everything memorized so far.
- *  - Yesterday's repetition: the pages memorized on day d-1.
- *  - Linking (ربط): from the linking start up to the pages memorized on day d-2.
- *  - Rounds (جولات): round k starts on day 33 + 6(k-1) and lasts 6 days. When it
- *    starts, the pages memorized in the first 6k days leave linking and become
- *    "old memorization", which is reviewed once over the 6 days of the round.
- *
- * These rules reproduce the printed tables day by day.
+ * The plan in three layers, counted in pages so it works for any daily amount
+ * (one, two or three pages, changeable at any time):
+ *  - Yesterday's repetition: the pages memorized on the last memorizing day.
+ *  - Linking (ربط): the [LINK_PAGES] pages right before yesterday's pages, no more.
+ *  - Review (مراجعة): everything older than linking, even a single page. It is gone
+ *    over in cycles: when a cycle starts, the old pages are split into equal daily
+ *    parts of at most [REVIEW_PAGES]; pages that leave linking meanwhile join the next cycle.
  */
 object PlanRules {
-    const val FIRST_ROUND_DAY = 33
-    const val ROUND_LENGTH = 6
+    const val LINK_PAGES = 20
+    const val REVIEW_PAGES = 20
     const val YESTERDAY_REPS = 5
     const val RECORD_REPS = 3
     const val LISTEN_REPS = 3
     const val TAFSIR_REPS = 1
 
     fun defaultRepetitions(amount: Int): Int = if (amount >= 3) 30 else 40
-
-    /** Number of the round in progress on plan day [day], or 0 before the first round. */
-    fun roundOf(day: Int): Int =
-        if (day < FIRST_ROUND_DAY) 0 else (day - FIRST_ROUND_DAY) / ROUND_LENGTH + 1
-
-    /** First plan day of round [k]. */
-    fun roundStartDay(k: Int): Int = FIRST_ROUND_DAY + (k - 1) * ROUND_LENGTH
 }
 
 data class PageRange(val from: Int, val to: Int) {
@@ -65,8 +52,9 @@ data class TodayPlan(
     val yesterday: PageRange?,
     val linking: PageRange?,
     val review: PageRange?,
+    /** Number of the review cycle in progress, 0 before there is anything to review. */
     val round: Int,
-    /** True on the first day of a round (the printed tables show the round number there). */
+    /** True on the first day of a review cycle. */
     val roundStartsToday: Boolean,
     val memorizationDone: Boolean,
 )
@@ -75,12 +63,31 @@ data class TodayPlan(
  * Computes today's plan from the history of completed days.
  *
  * Off days (Friday, sickness, travel) do not memorize new pages and do not move the
- * plan day forward, but they still get linking and the next review portion.
+ * plan day forward, but they still get linking and the next review part.
  */
 class PlanEngine(
     private val startPage: Int = 1,
     private val totalPages: Int = QuranData.TOTAL_PAGES,
 ) {
+    private class Layers(val yesterday: PageRange?, val linking: PageRange?, val oldTo: Int)
+
+    /**
+     * Yesterday, linking and where old pages end, for a day of [kind] on [date], given what
+     * came before it: pages memorized so far, the last memorizing day and the last recorded day.
+     */
+    private fun layers(memorized: Int, lastMemo: DayEntry?, last: DayEntry?, kind: DayKind, date: LocalDate?): Layers {
+        val yesterday = if (kind == DayKind.MEMO) {
+            lastMemo?.pages
+        } else {
+            // Off day: repeat yesterday only when yesterday itself was a memorizing day.
+            last?.takeIf { it.kind == DayKind.MEMO && (date == null || it.date == date.minusDays(1)) }?.pages
+        }
+        val linkEnd = if (yesterday != null) yesterday.from - 1 else memorized
+        val linkFrom = maxOf(startPage, linkEnd - PlanRules.LINK_PAGES + 1)
+        val linking = if (linkEnd >= linkFrom) PageRange(linkFrom, linkEnd) else null
+        return Layers(yesterday, linking, if (linking != null) linking.from - 1 else startPage - 1)
+    }
+
     /**
      * [today] is the plan date. On an off day it decides whether yesterday was a memorizing day,
      * in which case yesterday's pages are still repeated five times.
@@ -90,84 +97,81 @@ class PlanEngine(
         amount: Int,
         repetitions: Int,
         todayKind: DayKind,
-        today: java.time.LocalDate? = null,
+        today: LocalDate? = null,
     ): TodayPlan {
-        val memoDays = history.filter { it.kind == DayKind.MEMO }
-        // cumEnd[i] = last page memorized after i plan days (cumEnd[0] = page before start).
-        val cumEnd = IntArray(memoDays.size + 1)
-        cumEnd[0] = startPage - 1
-        for ((i, e) in memoDays.withIndex()) {
-            cumEnd[i + 1] = maxOf(cumEnd[i], e.pages?.to ?: cumEnd[i])
-        }
-        val done = memoDays.size
-        val day = done + 1
-        fun endAfter(days: Int): Int = cumEnd[days.coerceIn(0, done)]
-
-        val memorized = endAfter(done)
+        val sorted = history.sortedBy { it.date }
+        val memoDays = sorted.count { it.kind == DayKind.MEMO }
+        val memorized = maxOf(startPage - 1, sorted.filter { it.kind == DayKind.MEMO }.maxOfOrNull { it.pages?.to ?: 0 } ?: 0)
         val memoDone = memorized >= totalPages
 
         val newPages = if (todayKind == DayKind.MEMO && !memoDone) {
             PageRange(memorized + 1, minOf(totalPages, memorized + amount))
         } else null
 
-        val lastEntry = history.maxByOrNull { it.date }
-        val yesterday = if (todayKind == DayKind.MEMO) {
-            memoDays.lastOrNull()?.pages
-        } else {
-            // Off day: repeat yesterday only when yesterday itself was a memorizing day.
-            lastEntry?.takeIf { it.kind == DayKind.MEMO && (today == null || it.date == today.minusDays(1)) }?.pages
-        }
-
-        val round = PlanRules.roundOf(day)
-        val linkingStart = if (round == 0) startPage else endAfter(PlanRules.ROUND_LENGTH * round) + 1
-        // With no yesterday's repetition (an off day after an off day), those pages join linking.
-        val linkingEnd = if (todayKind == DayKind.OFF && yesterday == null) endAfter(day - 1) else endAfter(day - 2)
-        val linking = if (linkingEnd >= linkingStart) PageRange(linkingStart, linkingEnd) else null
-
+        // Walk every recorded day, then today, keeping the review cycle's place.
+        var cycle = 0
+        var cycleTo = 0
+        var parts = 0
+        var index = 0
         var review: PageRange? = null
         var startsToday = false
-        if (round > 0) {
-            val oldFrom = startPage
-            val oldTo = linkingStart - 1
-            // Days of this round already lived (memo + off days), so off days take the next portion.
-            val roundStart = PlanRules.roundStartDay(round)
-            val memoDaysInRound = day - roundStart // memo days completed since the round began
-            val offDaysInRound = countOffDaysSince(history, memoDays, roundStart)
-            val index = (memoDaysInRound + offDaysInRound) % PlanRules.ROUND_LENGTH
-            startsToday = memoDaysInRound == 0 && offDaysInRound == 0
-            review = portion(oldFrom, oldTo, index)
+        var todayLayers: Layers? = null
+        var soFar = startPage - 1
+        var lastMemo: DayEntry? = null
+        var last: DayEntry? = null
+        for (i in 0..sorted.size) {
+            val isToday = i == sorted.size
+            val e = if (isToday) null else sorted[i]
+            val l = layers(soFar, lastMemo, last, e?.kind ?: todayKind, e?.date ?: today)
+            var portion: PageRange? = null
+            var started = false
+            if (l.oldTo >= startPage) {
+                if (parts == 0 || index >= parts) {
+                    cycle++
+                    cycleTo = l.oldTo
+                    val size = cycleTo - startPage + 1
+                    parts = (size + PlanRules.REVIEW_PAGES - 1) / PlanRules.REVIEW_PAGES
+                    index = 0
+                    started = true
+                }
+                portion = part(startPage, cycleTo, parts, index)
+                index++
+            }
+            if (isToday) {
+                todayLayers = l
+                review = portion
+                startsToday = started
+            } else {
+                if (e!!.kind == DayKind.MEMO) {
+                    lastMemo = e
+                    soFar = maxOf(soFar, e.pages?.to ?: soFar)
+                }
+                last = e
+            }
         }
+        val l = todayLayers!!
 
         return TodayPlan(
-            planDay = day,
+            planDay = memoDays + 1,
             kind = todayKind,
             newPages = newPages,
             repetitions = repetitions,
-            yesterday = yesterday,
-            linking = linking,
+            yesterday = l.yesterday,
+            linking = l.linking,
             review = review,
-            round = round,
+            round = cycle,
             roundStartsToday = startsToday,
             memorizationDone = memoDone,
         )
     }
 
-    /** Off days recorded after the memo day that opened round starting at [roundStartDay]. */
-    private fun countOffDaysSince(history: List<DayEntry>, memoDays: List<DayEntry>, roundStartDay: Int): Int {
-        // Plan day roundStartDay is reached once (roundStartDay - 1) memo days are complete.
-        val before = roundStartDay - 1
-        val anchor: LocalDate? = if (before == 0) null else memoDays.getOrNull(before - 1)?.date
-        return history.count { it.kind == DayKind.OFF && (anchor == null || it.date.isAfter(anchor)) }
-    }
-
-    /** Splits [from..to] into 6 near-equal portions and returns portion [index]. */
-    fun portion(from: Int, to: Int, index: Int): PageRange? {
+    /** Splits [from..to] into [n] near-equal parts and returns part [index]. */
+    fun part(from: Int, to: Int, n: Int, index: Int): PageRange? {
         val total = to - from + 1
-        if (total <= 0) return null
-        val n = PlanRules.ROUND_LENGTH
+        if (total <= 0 || n <= 0 || index !in 0 until n) return null
         val base = total / n
         val extra = total % n
-        // The first `extra` portions get one more page.
+        // The first `extra` parts get one more page.
         val start = from + index * base + minOf(index, extra)
         val size = base + if (index < extra) 1 else 0
         if (size <= 0) return null
