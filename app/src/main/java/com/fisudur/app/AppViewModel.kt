@@ -54,6 +54,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         ticker?.cancel()
         ticker = null
         if (on) {
+            // The day-end alarm may have recorded a day while the app was in the background.
+            history = store.loadHistory()
             refresh()
             ticker = viewModelScope.launch {
                 while (true) {
@@ -77,7 +79,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
     }
 
     private fun build(): UiState {
-        val s = buildUiState(LocalDateTime.now(), settings, history, progress)
+        val now = LocalDateTime.now()
+        // A day that ended fully done (or as a chosen off day) is recorded even if "finish" was not pressed.
+        autoFinishEntry(settings, history, progress, DayClock(settings.dayEnd).planDate(now))?.let { e ->
+            history = (history + e).sortedBy { it.date }
+            store.saveHistory(history)
+        }
+        val s = buildUiState(now, settings, history, progress)
             .copy(update = update, lastAutoBackup = lastBackup)
         if (progress != s.progress) {
             progress = s.progress

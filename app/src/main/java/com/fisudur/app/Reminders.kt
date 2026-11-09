@@ -28,6 +28,7 @@ object Reminders {
     private const val CHANNEL = "reminders"
     const val DAILY = "com.fisudur.app.REMIND_DAILY"
     const val LATE = "com.fisudur.app.REMIND_LATE"
+    const val ROLLOVER = "com.fisudur.app.DAY_END"
 
     fun schedule(context: Context) {
         val store = Store(context)
@@ -37,9 +38,14 @@ object Reminders {
 
         val daily = pending(context, DAILY)
         val late = pending(context, LATE)
+        val rollover = pending(context, ROLLOVER)
         am.cancel(daily)
         am.cancel(late)
+        am.cancel(rollover)
         if (settings.startDate == null) return
+
+        // Just after the day ends: record a finished day and move the widget to the new day.
+        set(am, com.fisudur.app.engine.DayClock(settings.dayEnd).dayEnd(now).plusMinutes(1), rollover)
 
         settings.reminderMinutes?.let { m ->
             var at = now.toLocalDate().atTime(LocalTime.of(m / 60, m % 60))
@@ -66,6 +72,15 @@ object Reminders {
             Intent(context, ReminderReceiver::class.java).setAction(action),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+
+    /** Records the day that just ended if it was fully done (see [autoFinishEntry]). */
+    fun autoFinish(context: Context) {
+        val store = Store(context)
+        val settings = store.loadSettings()
+        val history = store.loadHistory()
+        val today = com.fisudur.app.engine.DayClock(settings.dayEnd).planDate(LocalDateTime.now())
+        autoFinishEntry(settings, history, store.loadProgress(), today)?.let { store.saveHistory(history + it) }
+    }
 
     fun show(context: Context, late: Boolean) {
         val store = Store(context)
@@ -103,6 +118,7 @@ class ReminderReceiver : BroadcastReceiver() {
         when (intent.action) {
             Reminders.DAILY -> Reminders.show(context, late = false)
             Reminders.LATE -> Reminders.show(context, late = true)
+            Reminders.ROLLOVER -> Reminders.autoFinish(context)
         }
         // Boot, time change, or an alarm that just fired: set the next ones.
         Reminders.schedule(context)

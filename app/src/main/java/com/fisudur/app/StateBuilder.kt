@@ -93,6 +93,24 @@ fun buildUiState(now: LocalDateTime, settings: Settings, history: List<DayEntry>
     return UiState(now, settings, history, date, p, plan, stepsFor(plan), done, stats)
 }
 
+/**
+ * When a plan day has ended without "finish day" being pressed, this is the entry it
+ * should get anyway: a full day if every step was checked, or the off day the user
+ * chose with a reason. Null when the day should stay unrecorded.
+ */
+fun autoFinishEntry(settings: Settings, history: List<DayEntry>, stored: DayProgress?, today: LocalDate): DayEntry? {
+    if (stored == null || settings.startDate == null || !stored.date.isBefore(today)) return null
+    if (stored.date.isBefore(settings.startDate) || history.any { it.date == stored.date }) return null
+    // A moment just after that day began, so the plan is rebuilt exactly as it was.
+    val then = stored.date.atTime(settings.dayEnd).plusMinutes(1)
+    val old = buildUiState(then, settings, history, stored)
+    if (old.planDate != stored.date) return null
+    val chosenOff = stored.kindOverride == DayKind.OFF && stored.reason != null
+    val complete = old.steps.isNotEmpty() && old.allChecked
+    if (!chosenOff && !complete) return null
+    return DayEntry(old.planDate, old.plan.kind, old.plan.newPages, stored.reason.takeIf { old.plan.kind == DayKind.OFF })
+}
+
 private fun stepsFor(plan: TodayPlan): List<Step> {
     // Order as practised: linking, yesterday, then the new pages (tafsir, listening,
     // recording to confirm, repetition to consolidate), and review last when there is one.
