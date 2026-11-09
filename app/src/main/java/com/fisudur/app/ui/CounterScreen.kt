@@ -44,8 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.fisudur.app.Actions
 import com.fisudur.app.UiState
@@ -53,7 +51,6 @@ import com.fisudur.app.UiState
 @Composable
 fun CounterScreen(s: UiState, a: Actions) {
     val pal = LocalPalette.current
-    val haptic = LocalHapticFeedback.current
     val target = s.plan.repetitions
     val count = s.progress.counter
     val pages = s.plan.newPages
@@ -62,8 +59,6 @@ fun CounterScreen(s: UiState, a: Actions) {
     val pressed by press.collectIsPressedAsState()
     val scale by animateFloatAsState(if (pressed) 0.96f else 1f, label = "press")
     val count1 = {
-        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-        if (count + 1 == target) haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         a.setCounter(count + 1)
     }
 

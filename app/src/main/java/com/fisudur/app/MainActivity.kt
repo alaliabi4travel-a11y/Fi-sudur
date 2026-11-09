@@ -91,7 +91,10 @@ class MainActivity : ComponentActivity() {
 
 /** The whole app for a given state: screens plus the bottom bar. */
 @Composable
-fun AppRoot(s: UiState, a: Actions, tab: Int, onTab: (Int) -> Unit) {
+fun AppRoot(s: UiState, actions: Actions, tab: Int, onTab: (Int) -> Unit) {
+    val latest by androidx.compose.runtime.rememberUpdatedState(s)
+    val haptics = com.fisudur.app.ui.rememberHaptics { latest.settings.haptics }
+    val a: Actions = com.fisudur.app.ui.HapticActions(actions, s, haptics)
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
@@ -103,7 +106,7 @@ fun AppRoot(s: UiState, a: Actions, tab: Int, onTab: (Int) -> Unit) {
                         tabs.forEachIndexed { i, t ->
                             NavigationBarItem(
                                 selected = tab == i,
-                                onClick = { onTab(i) },
+                                onClick = { if (tab != i) haptics.tick(); onTab(i) },
                                 icon = { Icon(t.icon, null) },
                                 label = { Text(t.label, style = MaterialTheme.typography.labelSmall) },
                                 colors = NavigationBarItemDefaults.colors(
@@ -125,7 +128,7 @@ fun AppRoot(s: UiState, a: Actions, tab: Int, onTab: (Int) -> Unit) {
                 SetupScreen(a)
             } else {
                 when (tab) {
-                    0 -> HomeScreen(s, a, openCounter = { onTab(1) })
+                    0 -> HomeScreen(s, a, openCounter = { haptics.tick(); onTab(1) })
                     1 -> CounterScreen(s, a)
                     2 -> StatsScreen(s, a)
                     else -> SettingsScreen(s, a)
