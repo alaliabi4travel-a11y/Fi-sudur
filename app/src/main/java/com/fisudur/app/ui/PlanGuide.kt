@@ -13,6 +13,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -102,17 +104,19 @@ private val topics = listOf(
 fun PlanGuide() {
     val pal = LocalPalette.current
     var open by rememberSaveable { mutableStateOf(-1) }
+    var expanded by rememberSaveable { mutableStateOf(false) }
     Panel(Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }, verticalAlignment = Alignment.CenterVertically) {
             IconBadge(Icons.Outlined.Lightbulb, pal.goldSoft, pal.gold, size = 40.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("شرح الخطة", style = MaterialTheme.typography.titleMedium, color = pal.ink)
                 Text("كيف يعمل الحفظ والربط والمراجعة", style = MaterialTheme.typography.bodySmall, color = pal.muted)
             }
+            Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, tint = pal.gold)
         }
-        Spacer(Modifier.height(6.dp))
-        topics.forEachIndexed { i, t ->
+        if (expanded) Spacer(Modifier.height(6.dp))
+        if (expanded) topics.forEachIndexed { i, t ->
             if (i > 0) HorizontalDivider(color = pal.line)
             Row(
                 Modifier.fillMaxWidth().clickable { open = i }.padding(vertical = 12.dp),
