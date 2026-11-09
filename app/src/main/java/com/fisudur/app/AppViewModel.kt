@@ -91,7 +91,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         changed()
     }
 
-    override fun toggle(stepId: String) = update { p ->
+    override fun toggle(stepId: String) {
+        // The repetition step follows the counter only; it cannot be ticked by hand.
+        if (_state.value.steps.firstOrNull { it.id == stepId }?.action == StepAction.COUNTER) return
+        toggleStep(stepId)
+    }
+
+    private fun toggleStep(stepId: String) = update { p ->
         p.copy(checked = if (stepId in p.checked) p.checked - stepId else p.checked + stepId)
     }
 
@@ -99,7 +105,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         val target = _state.value.plan.repetitions
         update { p ->
             val v = value.coerceAtLeast(0)
-            val checked = if (target > 0 && v >= target) p.checked + "repeat" else p.checked
+            val checked = if (target > 0 && v >= target) p.checked + "repeat" else p.checked - "repeat"
             p.copy(counter = v, checked = checked)
         }
     }

@@ -231,7 +231,8 @@ private fun Timeline(s: UiState, a: Actions, openCounter: () -> Unit) {
                         StepAction.CHECK -> a.toggle(step.id)
                     }
                 },
-                onCheck = { a.toggle(step.id) },
+                // Repetition is checked only by the counter reaching its target.
+                onCheck = { if (step.action == StepAction.COUNTER) openCounter() else a.toggle(step.id) },
             )
         }
     }
