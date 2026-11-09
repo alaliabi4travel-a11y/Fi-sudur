@@ -342,7 +342,7 @@ private fun DoneCard(s: UiState, a: Actions) {
             Text("أنجزت يومك", style = MaterialTheme.typography.headlineLarge, color = pal.onHero)
             val pages = s.doneToday?.pages
             Text(
-                if (pages != null) "حفظت ${pages.label.ar()} من سورة ${pages.surahs}" else "يوم ربط ومراجعة",
+                if (pages != null) "حفظت ${if (pages.from == pages.to) "الوجه" else "الأوجه"} ${pages.label.ar()} من سورة ${pages.surahs}" else "يوم ربط ومراجعة",
                 style = MaterialTheme.typography.bodyLarge,
                 color = pal.onHeroMuted,
                 textAlign = TextAlign.Center,
