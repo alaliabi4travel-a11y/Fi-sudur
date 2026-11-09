@@ -92,8 +92,7 @@ class MainActivity : ComponentActivity() {
 /** The whole app for a given state: screens plus the bottom bar. */
 @Composable
 fun AppRoot(s: UiState, actions: Actions, tab: Int, onTab: (Int) -> Unit) {
-    val latest by androidx.compose.runtime.rememberUpdatedState(s)
-    val haptics = com.fisudur.app.ui.rememberHaptics { latest.settings.haptics }
+    val haptics = com.fisudur.app.ui.rememberHaptics()
     val a: Actions = com.fisudur.app.ui.HapticActions(actions, s, haptics)
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,

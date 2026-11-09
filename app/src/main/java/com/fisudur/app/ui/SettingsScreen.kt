@@ -4,7 +4,6 @@ import android.app.TimePickerDialog
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.outlined.Backup
-import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -176,13 +175,6 @@ fun SettingsScreen(s: UiState, a: Actions) {
                     Text("إن لم تُنهِ وردك بعد", style = MaterialTheme.typography.bodySmall, color = pal.muted)
                 }
                 Switch(checked = st.lateReminder, onCheckedChange = { a.saveSettings(st.copy(lateReminder = it)) })
-            }
-        }
-
-        Section(Icons.Outlined.Vibration, "الاهتزاز", "عند العدّ، وعلامة الصح، والإنجاز، والتراجع.") {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("اهتزاز اللمسات", style = MaterialTheme.typography.bodyLarge, color = pal.ink, modifier = Modifier.weight(1f))
-                Switch(checked = st.haptics, onCheckedChange = { a.saveSettings(st.copy(haptics = it)) })
             }
         }
 

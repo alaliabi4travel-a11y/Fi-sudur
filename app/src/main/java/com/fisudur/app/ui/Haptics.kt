@@ -22,7 +22,7 @@ import java.time.LocalDate
  * tick = a small step (a count, a tab, a setting), confirm = something recorded,
  * success = something completed, undo = something taken back.
  */
-class Haptics(context: Context, private val enabled: () -> Boolean) {
+class Haptics(context: Context) {
     private val vibrator: Vibrator? =
         if (Build.VERSION.SDK_INT >= 31) context.getSystemService(VibratorManager::class.java)?.defaultVibrator
         else @Suppress("DEPRECATION") context.getSystemService(Vibrator::class.java)
@@ -38,7 +38,7 @@ class Haptics(context: Context, private val enabled: () -> Boolean) {
 
     private fun play(effect: Int, fallbackMs: Long) {
         val v = vibrator ?: return
-        if (!enabled() || !v.hasVibrator()) return
+        if (!v.hasVibrator()) return
         runCatching {
             if (Build.VERSION.SDK_INT >= 29) v.vibrate(VibrationEffect.createPredefined(effect))
             else v.vibrate(VibrationEffect.createOneShot(fallbackMs, VibrationEffect.DEFAULT_AMPLITUDE))
@@ -47,9 +47,9 @@ class Haptics(context: Context, private val enabled: () -> Boolean) {
 }
 
 @Composable
-fun rememberHaptics(enabled: () -> Boolean): Haptics {
+fun rememberHaptics(): Haptics {
     val context = LocalContext.current
-    return remember(context) { Haptics(context, enabled) }
+    return remember(context) { Haptics(context) }
 }
 
 /** Wraps the screens' actions so each one is felt the way the plan says, in one place. */

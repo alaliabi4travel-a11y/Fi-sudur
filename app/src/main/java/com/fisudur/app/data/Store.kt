@@ -23,8 +23,6 @@ data class Settings(
     val reminderMinutes: Int? = 20 * 60,
     /** A second reminder an hour before the day ends, only if the day is not finished. */
     val lateReminder: Boolean = true,
-    /** Vibration on meaningful taps. */
-    val haptics: Boolean = true,
 ) {
     val dayEnd: LocalTime get() = LocalTime.of(dayEndMinutes / 60, dayEndMinutes % 60)
 }
@@ -59,7 +57,6 @@ class Store(context: Context) {
             startPage = o.optInt("startPage", 1),
             reminderMinutes = if (!o.has("remind")) 20 * 60 else if (o.isNull("remind")) null else o.getInt("remind"),
             lateReminder = o.optBoolean("late", true),
-            haptics = o.optBoolean("haptic", true),
         )
     }
 
@@ -73,7 +70,6 @@ class Store(context: Context) {
             .put("startPage", s.startPage)
             .put("remind", s.reminderMinutes ?: JSONObject.NULL)
             .put("late", s.lateReminder)
-            .put("haptic", s.haptics)
         prefs.edit().putString("settings", o.toString()).apply()
     }
 
