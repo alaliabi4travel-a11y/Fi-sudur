@@ -130,7 +130,7 @@ private fun stepsFor(plan: TodayPlan): List<Step> {
     plan.newPages?.let {
         list += Step("tafsir", StepKind.TAFSIR, "اقرأ التفسير", it.label, it.surahs, "مرة واحدة · الميسّر أو المختصر")
         list += Step("listen", StepKind.LISTEN, "استمع إلى القارئ", it.label, it.surahs, "${PlanRules.LISTEN_REPS} مرات مع النظر في المصحف", StepAction.TALLY, PlanRules.LISTEN_REPS)
-        list += Step("memorize", StepKind.MEMORIZE, "احفظ الورد", it.label, it.surahs, "حتى تقرأه غيبًا")
+        list += Step("memorize", StepKind.MEMORIZE, "أكمل حفظ الورد", it.label, it.surahs, "حتى تقرأه غيبًا")
         list += Step("record", StepKind.RECORD, "سجّل غيبًا لتأكيد الحفظ", it.label, it.surahs, "${PlanRules.RECORD_REPS} مرات متتالية بلا خطأ")
         list += Step("repeat", StepKind.REPEAT, "كرّر لتثبيت الحفظ", it.label, it.surahs, "${plan.repetitions} مرة", StepAction.COUNTER, plan.repetitions)
     }
