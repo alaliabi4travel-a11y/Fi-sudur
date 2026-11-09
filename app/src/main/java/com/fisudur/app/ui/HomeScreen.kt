@@ -55,26 +55,16 @@ fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
     LazyColumn(
         Modifier.fillMaxWidth(),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { Header(s) }
         if (s.update is UpdateState.Available || s.update is UpdateState.Downloading || s.update is UpdateState.Ready) {
             item { UpdateBanner(s.update, a) }
         }
-        item { DayHero(s) }
-        item { WirdCard(s) }
+        item { TodayCard(s) }
         if (s.doneToday != null) {
             item { DoneCard(s, a) }
         } else {
-            item {
-                SectionTitle("خطوات اليوم") {
-                    Text(
-                        "${s.checkedCount.ar()} من ${s.steps.size.ar()}",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = LocalPalette.current.gold,
-                    )
-                }
-            }
             item { Timeline(s, a, openCounter) }
             item { FinishButton(s) { if (s.allChecked) a.finishDay() else confirmFinish = true } }
             item { OffDayToggle(s, a) }
@@ -92,121 +82,106 @@ fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
     }
 }
 
+/** One slim line: name, plan day, and the share of the Quran memorized. */
 @Composable
 private fun Header(s: UiState) {
     val pal = LocalPalette.current
-    Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) {
-            Text("في صدور", style = MaterialTheme.typography.headlineLarge, color = pal.ink)
-            Text(
-                if (s.plan.round > 0) "اليوم ${s.plan.planDay.ar()} · الجولة ${s.plan.round.ar()}" else "اليوم ${s.plan.planDay.ar()} من الخطة",
-                style = MaterialTheme.typography.bodyMedium,
-                color = pal.muted,
-            )
-        }
-        Ring(
-            progress = s.stats.percent / 100f,
-            modifier = Modifier.size(54.dp),
-            color = pal.gold,
-            track = pal.line,
-            width = 4.dp,
-        ) {
-            Text("${s.stats.percent.ar()}٪", style = MaterialTheme.typography.labelMedium, color = pal.ink)
-        }
+    Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("في صدور", style = MaterialTheme.typography.headlineMedium, color = pal.ink)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            if (s.plan.round > 0) "اليوم ${s.plan.planDay.ar()} · الجولة ${s.plan.round.ar()}" else "اليوم ${s.plan.planDay.ar()}",
+            style = MaterialTheme.typography.bodyMedium,
+            color = pal.muted,
+            modifier = Modifier.weight(1f),
+        )
+        Chip("${s.stats.percent.ar()}٪ من المصحف", pal.goldSoft, pal.ink)
     }
 }
 
+/**
+ * Today in one card: the pages and surah on the right, the time left on the left,
+ * and the day's progress along the bottom.
+ */
 @Composable
-private fun DayHero(s: UiState) {
+private fun TodayCard(s: UiState) {
     val pal = LocalPalette.current
+    val p = s.plan
     val clock = s.clock
     val start = clock.dayStart(s.now)
     val end = clock.dayEnd(s.now)
     val remaining = clock.remaining(s.now)
     val total = Duration.between(start, end).seconds.toFloat()
     val elapsed = (total - remaining.seconds).coerceIn(0f, total)
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(pal.hero)) {
-        KhatamPattern(Modifier.matchParentSize(), color = pal.gold.copy(alpha = .09f))
-        Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("يومك", style = MaterialTheme.typography.labelLarge, color = pal.gold)
-                Text(Fmt.day(s.planDate.dayOfWeek), style = MaterialTheme.typography.displaySmall, color = pal.onHero)
-                Text(Fmt.shortDate(s.planDate).ar(), style = MaterialTheme.typography.bodyLarge, color = pal.onHeroMuted)
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.WbTwilight, null, tint = pal.gold, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
+    val newPages = p.newPages
+    val reason = s.progress.reason ?: s.doneToday?.reason
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(pal.hero)) {
+        KhatamPattern(Modifier.matchParentSize(), color = pal.gold.copy(alpha = .08f))
+        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
                     Text(
-                        "من ${Fmt.time(start.toLocalTime()).ar()} إلى ${Fmt.time(end.toLocalTime()).ar()}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = pal.onHeroMuted,
+                        "${Fmt.day(s.planDate.dayOfWeek)} · ${Fmt.shortDate(s.planDate).ar()}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = pal.gold,
                     )
+                    Spacer(Modifier.height(2.dp))
+                    when {
+                        p.kind == DayKind.OFF -> {
+                            Text(reason?.let { "يوم عذر · $it" } ?: "يوم إجازة", style = MaterialTheme.typography.headlineMedium, color = pal.onHero)
+                            Text("ربط ومراجعة فقط", style = MaterialTheme.typography.bodySmall, color = pal.onHeroMuted)
+                        }
+                        newPages != null -> {
+                            Text(
+                                if (newPages.from == newPages.to) "الوجه ${newPages.from.ar()}" else "الوجه ${newPages.from.ar()} – ${newPages.to.ar()}",
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = pal.onHero,
+                            )
+                            Text(
+                                "سورة ${newPages.surahs}",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = pal.onHero,
+                                maxLines = 1,
+                            )
+                            Text(
+                                "${if (newPages.count == 1) "وجه واحد" else "${newPages.count.ar()} أوجه"} · تكرار ${p.repetitions.ar()}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = pal.onHeroMuted,
+                            )
+                        }
+                        else -> {
+                            Text("خُتم الحفظ", style = MaterialTheme.typography.headlineMedium, color = pal.onHero)
+                            Text("يستمر الربط والمراجعة", style = MaterialTheme.typography.bodySmall, color = pal.onHeroMuted)
+                        }
+                    }
                 }
-            }
-            Ring(
-                progress = if (total > 0) elapsed / total else 0f,
-                modifier = Modifier.size(128.dp),
-                color = pal.gold,
-                track = Color.White.copy(alpha = .14f),
-                width = 7.dp,
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(Fmt.countdown(remaining).ar(), style = MaterialTheme.typography.titleLarge, color = pal.onHero)
-                    Text("متبقٍ", style = MaterialTheme.typography.labelMedium, color = pal.onHeroMuted)
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun WirdCard(s: UiState) {
-    val pal = LocalPalette.current
-    val p = s.plan
-    Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
-        Column(
-            Modifier.fillMaxWidth().padding(6.dp)
-                .border(1.dp, pal.gold.copy(alpha = .45f), RoundedCornerShape(20.dp))
-                .padding(horizontal = 18.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("وِرد اليوم", style = MaterialTheme.typography.labelLarge, color = pal.gold)
-            val newPages = p.newPages
-            when {
-                p.kind == DayKind.OFF -> {
-                    Text(
-                        s.progress.reason?.let { "يوم عذر · $it" } ?: s.doneToday?.reason?.let { "يوم عذر · $it" } ?: "يوم إجازة",
-                        style = MaterialTheme.typography.displaySmall,
-                        color = pal.ink,
-                    )
-                    Text("ربط ومراجعة فقط، بلا حفظ جديد", style = MaterialTheme.typography.bodyMedium, color = pal.muted)
-                }
-                newPages != null -> {
-                    Text(
-                        if (newPages.from == newPages.to) newPages.from.ar() else "${newPages.from.ar()} – ${newPages.to.ar()}",
-                        style = MaterialTheme.typography.displayLarge,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Text("سورة ${newPages.surahs}", style = MaterialTheme.typography.headlineSmall, color = pal.ink)
-                    Text(
-                        "${if (newPages.count == 1) "وجه واحد" else "${newPages.count.ar()} أوجه"} · تكرار ${p.repetitions.ar()} مرة",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = pal.muted,
-                    )
-                }
-                else -> {
-                    Text("خُتم الحفظ", style = MaterialTheme.typography.displaySmall, color = pal.ink)
-                    Text("بارك الله لك. يستمر الربط والمراجعة.", style = MaterialTheme.typography.bodyMedium, color = pal.muted)
-                }
-            }
-            Ornament(Modifier.padding(vertical = 12.dp))
-            run {
-                val done = s.checkedCount
-                LinearProgressIndicator(
-                    progress = { if (s.steps.isEmpty()) 1f else done / s.steps.size.toFloat() },
-                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape),
+                Spacer(Modifier.width(12.dp))
+                Ring(
+                    progress = if (total > 0) elapsed / total else 0f,
+                    modifier = Modifier.size(96.dp),
                     color = pal.gold,
-                    trackColor = pal.line,
+                    track = Color.White.copy(alpha = .14f),
+                    width = 5.dp,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(Fmt.countdown(remaining).ar(), style = MaterialTheme.typography.titleSmall, color = pal.onHero)
+                        Text("حتى ${Fmt.time(end.toLocalTime()).ar()}", style = MaterialTheme.typography.labelSmall, color = pal.onHeroMuted)
+                    }
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LinearProgressIndicator(
+                    progress = { if (s.steps.isEmpty()) 1f else s.checkedCount / s.steps.size.toFloat() },
+                    modifier = Modifier.weight(1f).height(5.dp).clip(CircleShape),
+                    color = pal.gold,
+                    trackColor = Color.White.copy(alpha = .14f),
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "${s.checkedCount.ar()} من ${s.steps.size.ar()}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = pal.onHeroMuted,
                 )
             }
         }
@@ -253,13 +228,13 @@ private fun TimelineRow(
     val node by animateColorAsState(if (checked) pal.gold else pal.card, label = "node")
     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
         // the rail
-        Box(Modifier.width(36.dp).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
+        Box(Modifier.width(28.dp).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.width(2.dp).height(22.dp).background(if (first) Color.Transparent else pal.line))
+                Box(Modifier.width(2.dp).height(20.dp).background(if (first) Color.Transparent else pal.line))
                 Box(Modifier.width(2.dp).weight(1f).background(if (last) Color.Transparent else pal.line))
             }
             Box(
-                Modifier.padding(top = 12.dp).size(22.dp).clip(CircleShape).background(node)
+                Modifier.padding(top = 10.dp).size(20.dp).clip(CircleShape).background(node)
                     .border(2.dp, if (checked) pal.gold else pal.line, CircleShape)
                     .clickable(onClick = onCheck),
                 contentAlignment = Alignment.Center,
@@ -267,31 +242,34 @@ private fun TimelineRow(
                 if (checked) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
             }
         }
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(6.dp))
         // the card
         Row(
-            Modifier.weight(1f).padding(bottom = 10.dp)
-                .clip(RoundedCornerShape(20.dp))
+            Modifier.weight(1f).padding(bottom = 8.dp)
+                .clip(RoundedCornerShape(18.dp))
                 .background(if (checked) pal.goldSoft.copy(alpha = .55f) else pal.card)
-                .border(1.dp, if (checked) pal.gold.copy(alpha = .35f) else pal.line, RoundedCornerShape(20.dp))
+                .border(1.dp, if (checked) pal.gold.copy(alpha = .35f) else pal.line, RoundedCornerShape(18.dp))
                 .clickable(onClick = onOpen)
-                .padding(14.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconBadge(
                 stepIcon(step.kind),
                 bg = if (checked) pal.gold else MaterialTheme.colorScheme.primaryContainer,
                 fg = if (checked) Color.White else MaterialTheme.colorScheme.primary,
+                size = 36.dp,
             )
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(step.title, style = MaterialTheme.typography.titleMedium, color = pal.ink)
-                Text(step.times.ar(), style = MaterialTheme.typography.bodySmall, color = pal.gold)
+                Text(step.times.ar(), style = MaterialTheme.typography.bodySmall, color = pal.gold, maxLines = 1)
                 if (step.pages != null) {
                     Text(
                         "${step.pages.ar()} · ${step.surahs}",
                         style = MaterialTheme.typography.bodySmall,
                         color = pal.muted,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                 }
                 if (step.action == StepAction.COUNTER) {

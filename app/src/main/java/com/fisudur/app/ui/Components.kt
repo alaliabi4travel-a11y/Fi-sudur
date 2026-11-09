@@ -238,7 +238,7 @@ fun Pill(text: String, selected: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** Big Amiri screen title with an optional muted subtitle. */
+/** Big screen title with an optional muted subtitle. */
 @Composable
 fun ScreenTitle(title: String, subtitle: String? = null) {
     val pal = LocalPalette.current

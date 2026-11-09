@@ -14,6 +14,8 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
@@ -31,6 +33,17 @@ val Plex = FontFamily(
 val Amiri = FontFamily(
     Font(R.font.amiri_regular, FontWeight.Normal),
     Font(R.font.amiri_bold, FontWeight.Bold),
+)
+
+/** Heavy geometric face for headlines and numbers (variable font, one file). */
+@OptIn(ExperimentalTextApi::class)
+private fun readex(w: FontWeight) =
+    Font(R.font.readex_pro, w, variationSettings = FontVariation.Settings(FontVariation.weight(w.weight)))
+
+val Readex = FontFamily(
+    readex(FontWeight.Medium),
+    readex(FontWeight.SemiBold),
+    readex(FontWeight.Bold),
 )
 
 /** Colors the screens use beyond the Material scheme. */
@@ -110,17 +123,17 @@ private val DarkScheme = darkColorScheme(
 private fun plex(size: Int, weight: FontWeight = FontWeight.Normal, line: Int = (size * 1.5).toInt()) =
     TextStyle(fontFamily = Plex, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp)
 
-private fun amiri(size: Int, weight: FontWeight = FontWeight.Bold, line: Int = (size * 1.45).toInt()) =
-    TextStyle(fontFamily = Amiri, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp)
+private fun readex(size: Int, weight: FontWeight = FontWeight.Bold, line: Int = (size * 1.4).toInt()) =
+    TextStyle(fontFamily = Readex, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp)
 
 val AppTypography = Typography(
-    displayLarge = amiri(64, line = 76),
-    displayMedium = amiri(48, line = 60),
-    displaySmall = amiri(36, line = 48),
-    headlineLarge = amiri(30),
-    headlineMedium = amiri(26),
-    headlineSmall = amiri(22),
-    titleLarge = plex(19, FontWeight.Bold),
+    displayLarge = readex(56, line = 68),
+    displayMedium = readex(44, line = 56),
+    displaySmall = readex(34, line = 46),
+    headlineLarge = readex(28),
+    headlineMedium = readex(23),
+    headlineSmall = readex(20),
+    titleLarge = readex(18, FontWeight.SemiBold),
     titleMedium = plex(16, FontWeight.SemiBold),
     titleSmall = plex(14, FontWeight.SemiBold),
     bodyLarge = plex(16),

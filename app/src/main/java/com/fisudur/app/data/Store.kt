@@ -120,7 +120,7 @@ class Store(context: Context) {
             .put("k", p.kindOverride?.name ?: "")
             .put("t", JSONObject(p.tallies))
             .put("r", p.reason ?: "")
-        prefs.edit().putString("progress", o.toString()).apply()
+        prefs.edit().putString("progress", o.toString()).commit()
     }
 
     fun clearAll() {
