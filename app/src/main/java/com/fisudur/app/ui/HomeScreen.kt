@@ -11,12 +11,15 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -41,6 +44,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.fisudur.app.Actions
@@ -54,25 +61,25 @@ import java.time.Duration
 @Composable
 fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
     var confirmFinish by remember { mutableStateOf(false) }
-    LazyColumn(
-        Modifier.fillMaxWidth(),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        item { Header(s) }
-        if (s.update is UpdateState.Available || s.update is UpdateState.Downloading || s.update is UpdateState.Ready) {
-            item { UpdateBanner(s.update, a) }
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        FillScreen(
+            minHeight = maxHeight - 12.dp,
+            modifier = Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
+        ) {
+            Header(s)
+            if (s.update is UpdateState.Available || s.update is UpdateState.Downloading || s.update is UpdateState.Ready) {
+                UpdateBanner(s.update, a)
+            }
+            Box(Modifier.layoutId(FILL_CARD)) { TodayCard(s) }
+            if (s.doneToday != null) {
+                DoneCard(s, a)
+                s.tomorrow?.let { t -> TomorrowCard(t, a) }
+            } else {
+                Timeline(s, a, openCounter)
+                Box(Modifier.layoutId(FILL_FOOT)) { FinishButton(s) { if (s.allChecked) a.finishDay() else confirmFinish = true } }
+                OffDayToggle(s, a)
+            }
         }
-        item { TodayCard(s) }
-        if (s.doneToday != null) {
-            item { DoneCard(s, a) }
-            s.tomorrow?.let { t -> item { TomorrowCard(t, a) } }
-        } else {
-            item { Timeline(s, a, openCounter) }
-            item { FinishButton(s) { if (s.allChecked) a.finishDay() else confirmFinish = true } }
-            item { OffDayToggle(s, a) }
-        }
-        item { Spacer(Modifier.height(4.dp)) }
     }
     if (confirmFinish) {
         AlertDialog(
@@ -118,7 +125,7 @@ private fun TodayCard(s: UiState) {
     val elapsed = (total - remaining.seconds).coerceIn(0f, total)
     val newPages = p.newPages
     val reason = s.progress.reason ?: s.doneToday?.reason
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(pal.hero)) {
+    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).background(pal.hero), contentAlignment = Alignment.Center) {
         KhatamPattern(Modifier.matchParentSize(), color = pal.gold.copy(alpha = .08f))
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -193,7 +200,7 @@ private fun TodayCard(s: UiState) {
 
 @Composable
 private fun Timeline(s: UiState, a: Actions, openCounter: () -> Unit) {
-    Column {
+    run {
         s.steps.forEachIndexed { i, step ->
             TimelineRow(
                 step = step,
@@ -229,26 +236,25 @@ private fun TimelineRow(
 ) {
     val pal = LocalPalette.current
     val node by animateColorAsState(if (checked) pal.gold else pal.card, label = "node")
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
-        // the rail
-        Box(Modifier.width(28.dp).fillMaxHeight(), contentAlignment = Alignment.TopCenter) {
-            Column(Modifier.fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(Modifier.width(2.dp).height(18.dp).background(if (first) Color.Transparent else pal.line))
-                Box(Modifier.width(2.dp).weight(1f).background(if (last) Color.Transparent else pal.line))
-            }
+    Row(Modifier.layoutId(FILL_ROW).fillMaxWidth().height(IntrinsicSize.Min)) {
+        // the rail: the node sits on the middle of its card, the line runs through the gap below
+        Column(Modifier.width(28.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.width(2.dp).weight(1f).background(if (first) Color.Transparent else pal.line))
             Box(
-                Modifier.padding(top = 9.dp).size(20.dp).clip(CircleShape).background(node)
+                Modifier.size(20.dp).clip(CircleShape).background(node)
                     .border(2.dp, if (checked) pal.gold else pal.line, CircleShape)
                     .clickable(onClick = onCheck),
                 contentAlignment = Alignment.Center,
             ) {
                 if (checked) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
             }
+            Box(Modifier.width(2.dp).weight(1f).background(if (last) Color.Transparent else pal.line))
+            Box(Modifier.width(2.dp).height(RAIL_GAP).background(if (last) Color.Transparent else pal.line))
         }
         Spacer(Modifier.width(6.dp))
         // the card
         Row(
-            Modifier.weight(1f).padding(bottom = 6.dp)
+            Modifier.weight(1f).fillMaxHeight().padding(bottom = RAIL_GAP)
                 .clip(RoundedCornerShape(16.dp))
                 .background(if (checked) pal.goldSoft.copy(alpha = .55f) else pal.card)
                 .border(1.dp, if (checked) pal.gold.copy(alpha = .35f) else pal.line, RoundedCornerShape(16.dp))
@@ -481,5 +487,64 @@ private fun OffDayToggle(s: UiState, a: Actions) {
             confirmButton = {},
             dismissButton = { TextButton(onClick = { choosing = false }) { Text("إلغاء") } },
         )
+    }
+}
+
+private const val FILL_CARD = "card"
+private const val FILL_ROW = "row"
+private const val FILL_FOOT = "foot"
+private val RAIL_GAP = 6.dp
+
+/**
+ * Lays the home out top to bottom and, when it is shorter than the screen, spends the
+ * spare height so the page reaches the bottom instead of leaving it empty:
+ * first the step cards grow a little, then the today card, then the gaps between
+ * sections; anything left goes above the finish button so it sits near the thumb.
+ * When the content is taller than the screen it simply scrolls.
+ */
+@Composable
+private fun FillScreen(minHeight: Dp, modifier: Modifier, content: @Composable () -> Unit) {
+    Layout(content, modifier) { ms, c ->
+        val w = c.maxWidth
+        val gap = 10.dp.roundToPx()
+        val ids = ms.map { it.layoutId }
+        // no gap between two step rows: each row carries its own small gap
+        val gapBefore = BooleanArray(ms.size) { i -> i > 0 && !(ids[i] == FILL_ROW && ids[i - 1] == FILL_ROW) }
+        val gaps = gapBefore.count { it }
+        val fixed = arrayOfNulls<androidx.compose.ui.layout.Placeable>(ms.size)
+        val natural = IntArray(ms.size)
+        ms.forEachIndexed { i, m ->
+            if (ids[i] == FILL_ROW || ids[i] == FILL_CARD) {
+                natural[i] = m.minIntrinsicHeight(w)
+            } else {
+                fixed[i] = m.measure(Constraints(minWidth = w, maxWidth = w))
+                natural[i] = fixed[i]!!.height
+            }
+        }
+        var spare = (minHeight.roundToPx() - natural.sum() - gaps * gap).coerceAtLeast(0)
+        val rows = ids.count { it == FILL_ROW }
+        val rowGrow = if (rows > 0) minOf(22.dp.roundToPx(), spare / rows) else 0
+        spare -= rowGrow * rows
+        val cardGrow = if (FILL_CARD in ids) minOf(32.dp.roundToPx(), spare / 2) else 0
+        spare -= cardGrow
+        val gapGrow = if (gaps > 0) minOf(14.dp.roundToPx(), spare / gaps) else 0
+        spare -= gapGrow * gaps
+        val foot = ids.indexOf(FILL_FOOT)
+        val placeables = ms.mapIndexed { i, m ->
+            fixed[i] ?: run {
+                val h = natural[i] + if (ids[i] == FILL_ROW) rowGrow else cardGrow
+                m.measure(Constraints(minWidth = w, maxWidth = w, minHeight = h, maxHeight = h))
+            }
+        }
+        val total = placeables.sumOf { it.height } + gaps * (gap + gapGrow) + if (foot >= 0) spare else 0
+        layout(w, total) {
+            var y = 0
+            placeables.forEachIndexed { i, p ->
+                if (gapBefore[i]) y += gap + gapGrow
+                if (i == foot) y += spare
+                p.place(0, y)
+                y += p.height
+            }
+        }
     }
 }
