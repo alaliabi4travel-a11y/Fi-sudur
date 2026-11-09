@@ -64,7 +64,7 @@ fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
             item { UpdateBanner(s.update, a) }
         }
         item { DayHero(s) }
-        item { WirdCard(s, a) }
+        item { WirdCard(s) }
         if (s.doneToday != null) {
             item { DoneCard(s, a) }
         } else {
@@ -162,7 +162,7 @@ private fun DayHero(s: UiState) {
 }
 
 @Composable
-private fun WirdCard(s: UiState, a: Actions) {
+private fun WirdCard(s: UiState) {
     val pal = LocalPalette.current
     val p = s.plan
     Panel(Modifier.fillMaxWidth(), padding = 0.dp) {
@@ -198,16 +198,7 @@ private fun WirdCard(s: UiState, a: Actions) {
                 }
             }
             Ornament(Modifier.padding(vertical = 12.dp))
-            if (s.doneToday == null && p.kind == DayKind.MEMO && !p.memorizationDone) {
-                Text("مقدار الحفظ", style = MaterialTheme.typography.labelMedium, color = pal.muted)
-                Spacer(Modifier.height(6.dp))
-                Segmented(
-                    options = listOf("وجه", "وجهان", "٣ أوجه"),
-                    selected = (s.settings.amount - 1).coerceIn(0, 2),
-                    onSelect = { a.saveSettings(s.settings.copy(amount = it + 1)) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            } else {
+            run {
                 val done = s.checkedCount
                 LinearProgressIndicator(
                     progress = { if (s.steps.isEmpty()) 1f else done / s.steps.size.toFloat() },
