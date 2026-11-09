@@ -142,7 +142,7 @@ private fun TodayCard(s: UiState) {
                             )
                             Text(
                                 "سورة ${newPages.surahs}",
-                                style = MaterialTheme.typography.titleMedium,
+                                style = SurahStyle,
                                 color = pal.onHero,
                                 maxLines = 1,
                             )

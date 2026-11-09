@@ -21,26 +21,19 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.sp
 import com.fisudur.app.R
 
-/** Body and interface text. */
-val Plex = FontFamily(
-    Font(R.font.plex_regular, FontWeight.Normal),
-    Font(R.font.plex_medium, FontWeight.Medium),
-    Font(R.font.plex_semibold, FontWeight.SemiBold),
-    Font(R.font.plex_bold, FontWeight.Bold),
-)
-
-/** Classical naskh for titles, page numbers and Quranic text. */
+/** Classical naskh for everything Quranic: surah names and verses. */
 val Amiri = FontFamily(
     Font(R.font.amiri_regular, FontWeight.Normal),
     Font(R.font.amiri_bold, FontWeight.Bold),
 )
 
-/** Heavy geometric face for headlines and numbers (variable font, one file). */
+/** The interface face, in four weights (one variable font file). */
 @OptIn(ExperimentalTextApi::class)
 private fun readex(w: FontWeight) =
     Font(R.font.readex_pro, w, variationSettings = FontVariation.Settings(FontVariation.weight(w.weight)))
 
 val Readex = FontFamily(
+    readex(FontWeight.Normal),
     readex(FontWeight.Medium),
     readex(FontWeight.SemiBold),
     readex(FontWeight.Bold),
@@ -124,8 +117,8 @@ private val DarkScheme = darkColorScheme(
     outline = Color(0xFF26324F), error = Color(0xFFE07A6E),
 )
 
-private fun plex(size: Int, weight: FontWeight = FontWeight.Normal, line: Int = (size * 1.5).toInt()) =
-    TextStyle(fontFamily = Plex, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp)
+private fun ui(size: Int, weight: FontWeight = FontWeight.Normal, line: Int = (size * 1.5).toInt()) =
+    TextStyle(fontFamily = Readex, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp)
 
 private fun readex(size: Int, weight: FontWeight = FontWeight.Bold, line: Int = (size * 1.4).toInt()) =
     TextStyle(fontFamily = Readex, fontWeight = weight, fontSize = size.sp, lineHeight = line.sp)
@@ -134,19 +127,22 @@ val AppTypography = Typography(
     displayLarge = readex(56, line = 68),
     displayMedium = readex(44, line = 56),
     displaySmall = readex(34, line = 46),
-    headlineLarge = readex(28),
-    headlineMedium = readex(23),
-    headlineSmall = readex(20),
-    titleLarge = readex(18, FontWeight.SemiBold),
-    titleMedium = plex(16, FontWeight.SemiBold),
-    titleSmall = plex(14, FontWeight.SemiBold),
-    bodyLarge = plex(16),
-    bodyMedium = plex(14),
-    bodySmall = plex(12, line = 18),
-    labelLarge = plex(14, FontWeight.SemiBold),
-    labelMedium = plex(12, FontWeight.Medium),
-    labelSmall = plex(11, FontWeight.Medium),
+    headlineLarge = readex(26),
+    headlineMedium = readex(22),
+    headlineSmall = readex(19),
+    titleLarge = readex(17, FontWeight.SemiBold),
+    titleMedium = ui(15, FontWeight.SemiBold),
+    titleSmall = ui(14, FontWeight.SemiBold),
+    bodyLarge = ui(15),
+    bodyMedium = ui(14),
+    bodySmall = ui(12, line = 18),
+    labelLarge = ui(14, FontWeight.Medium),
+    labelMedium = ui(12, FontWeight.Medium),
+    labelSmall = ui(11, FontWeight.Medium),
 )
+
+/** Surah names: Amiri, sized to sit beside the interface text. */
+val SurahStyle = TextStyle(fontFamily = Amiri, fontWeight = FontWeight.Bold, fontSize = 19.sp, lineHeight = 28.sp)
 
 @Composable
 fun AppTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
