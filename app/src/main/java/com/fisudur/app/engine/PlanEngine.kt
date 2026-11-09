@@ -25,9 +25,9 @@ object PlanRules {
     const val FIRST_ROUND_DAY = 33
     const val ROUND_LENGTH = 6
     const val YESTERDAY_REPS = 5
+    const val RECORD_REPS = 3
     const val LISTEN_REPS = 3
     const val TAFSIR_REPS = 1
-    const val RECORD_REPS = 3
 
     fun defaultRepetitions(amount: Int): Int = if (amount >= 3) 30 else 40
 

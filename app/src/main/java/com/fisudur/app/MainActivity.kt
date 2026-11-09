@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material3.Icon
@@ -36,7 +35,6 @@ import com.fisudur.app.ui.LocalPalette
 import com.fisudur.app.ui.AppTheme
 import com.fisudur.app.ui.CounterScreen
 import com.fisudur.app.ui.HomeScreen
-import com.fisudur.app.ui.RecordingsScreen
 import com.fisudur.app.ui.SettingsScreen
 import com.fisudur.app.ui.SetupScreen
 import com.fisudur.app.ui.StatsScreen
@@ -46,7 +44,6 @@ private data class Tab(val label: String, val icon: ImageVector)
 private val tabs = listOf(
     Tab("الرئيسية", Icons.Outlined.Home),
     Tab("العداد", Icons.Outlined.TouchApp),
-    Tab("التسجيلات", Icons.Outlined.Mic),
     Tab("إحصائياتي", Icons.Outlined.BarChart),
     Tab("الإعدادات", Icons.Outlined.Settings),
 )
@@ -103,10 +100,9 @@ fun AppRoot(s: UiState, a: Actions, tab: Int, onTab: (Int) -> Unit) {
                 SetupScreen(a)
             } else {
                 when (tab) {
-                    0 -> HomeScreen(s, a, openCounter = { onTab(1) }, openRecordings = { onTab(2) })
+                    0 -> HomeScreen(s, a, openCounter = { onTab(1) })
                     1 -> CounterScreen(s, a)
-                    2 -> RecordingsScreen(s, a)
-                    3 -> StatsScreen(s)
+                    2 -> StatsScreen(s)
                     else -> SettingsScreen(s, a)
                 }
             }

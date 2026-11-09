@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.WbTwilight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -45,12 +46,13 @@ import com.fisudur.app.Actions
 import com.fisudur.app.Step
 import com.fisudur.app.StepAction
 import com.fisudur.app.UiState
+import com.fisudur.app.engine.PlanRules
 import com.fisudur.app.UpdateState
 import com.fisudur.app.engine.DayKind
 import java.time.Duration
 
 @Composable
-fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit, openRecordings: () -> Unit) {
+fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
     var confirmFinish by remember { mutableStateOf(false) }
     LazyColumn(
         Modifier.fillMaxWidth(),
@@ -75,7 +77,7 @@ fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit, openRecordings: 
                     )
                 }
             }
-            item { Timeline(s, a, openCounter, openRecordings) }
+            item { Timeline(s, a, openCounter) }
             item { FinishButton(s) { if (s.allChecked) a.finishDay() else confirmFinish = true } }
             item { OffDayToggle(s, a) }
         }
@@ -219,7 +221,7 @@ private fun WirdCard(s: UiState, a: Actions) {
 }
 
 @Composable
-private fun Timeline(s: UiState, a: Actions, openCounter: () -> Unit, openRecordings: () -> Unit) {
+private fun Timeline(s: UiState, a: Actions, openCounter: () -> Unit) {
     Column {
         s.steps.forEachIndexed { i, step ->
             TimelineRow(
@@ -231,12 +233,44 @@ private fun Timeline(s: UiState, a: Actions, openCounter: () -> Unit, openRecord
                 onOpen = {
                     when (step.action) {
                         StepAction.COUNTER -> openCounter()
-                        StepAction.RECORD -> openRecordings()
                         StepAction.CHECK -> a.toggle(step.id)
                     }
                 },
                 onCheck = { a.toggle(step.id) },
             )
+        }
+        Upcoming(s)
+    }
+}
+
+/** Says when linking and review begin, so their absence early in the plan is not a surprise. */
+@Composable
+private fun Upcoming(s: UiState) {
+    val pal = LocalPalette.current
+    val day = s.plan.planDay
+    val notes = buildList {
+        if (s.plan.linking == null && day < 3) {
+            add("الربط يبدأ في اليوم ${3.ar()} من الخطة، بعد ${(3 - day).ar()} ${if (3 - day == 1) "يوم" else "أيام"}. يربط ما حفظته قبل الأمس.")
+        }
+        if (s.plan.review == null && day < PlanRules.FIRST_ROUND_DAY) {
+            val left = PlanRules.FIRST_ROUND_DAY - day
+            add("المراجعة تبدأ في اليوم ${PlanRules.FIRST_ROUND_DAY.ar()} من الخطة، بعد ${left.ar()} يومًا. قبلها يكفيك الربط.")
+        }
+    }
+    if (notes.isEmpty()) return
+    Column(
+        Modifier.fillMaxWidth().padding(start = 44.dp, top = 2.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .border(1.dp, pal.line, RoundedCornerShape(18.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        notes.forEach { n ->
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(Icons.Outlined.Schedule, null, tint = pal.gold, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(n, style = MaterialTheme.typography.bodySmall, color = pal.muted)
+            }
         }
     }
 }

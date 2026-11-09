@@ -13,7 +13,7 @@ import com.fisudur.app.engine.TodayPlan
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-enum class StepAction { CHECK, COUNTER, RECORD }
+enum class StepAction { CHECK, COUNTER }
 
 enum class StepKind { YESTERDAY, LISTEN, TAFSIR, REPEAT, RECORD, LINK, REVIEW }
 
@@ -89,7 +89,7 @@ private fun stepsFor(plan: TodayPlan): List<Step> {
         list += Step("listen", StepKind.LISTEN, "استمع إلى القارئ", it.label, it.surahs, "${PlanRules.LISTEN_REPS} مرات مع النظر في المصحف")
         list += Step("tafsir", StepKind.TAFSIR, "اقرأ التفسير", it.label, it.surahs, "مرة واحدة · الميسّر أو المختصر")
         list += Step("repeat", StepKind.REPEAT, "كرّر حتى تحفظ", it.label, it.surahs, "${plan.repetitions} مرة", StepAction.COUNTER, plan.repetitions)
-        list += Step("record", StepKind.RECORD, "سجّل غيبًا", it.label, it.surahs, "${PlanRules.RECORD_REPS} مرات متتالية بلا خطأ", StepAction.RECORD)
+        list += Step("record", StepKind.RECORD, "سجّل غيبًا", it.label, it.surahs, "${PlanRules.RECORD_REPS} مرات متتالية بلا خطأ")
     }
     plan.linking?.let {
         list += Step("link", StepKind.LINK, "الربط", it.label, it.surahs, "مرة واحدة غيبًا · ${it.count} وجهًا")

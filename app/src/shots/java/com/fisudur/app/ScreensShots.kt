@@ -73,8 +73,8 @@ class ScreensShots {
     @Test fun home() = shot(0)
     @Test fun homeDark() = shot(0, dark = true)
     @Test fun counter() = shot(1)
-    @Test fun recordings() = shot(2)
-    @Test fun stats() = shot(3)
-    @Test fun settings() = shot(4)
+    @Test fun stats() = shot(2)
+    @Test fun settings() = shot(3)
+    @Test fun firstDay() = shot(0, buildUiState(LocalDateTime.of(today, LocalTime.of(21, 35)), settings.copy(startDate = today), emptyList(), null))
     @Test fun setup() = shot(0, state(s = Settings()))
 }
