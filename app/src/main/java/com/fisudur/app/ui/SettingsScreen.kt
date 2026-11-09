@@ -104,6 +104,30 @@ fun SettingsScreen(s: UiState, a: Actions) {
             }
         }
 
+        Section(
+            Icons.Outlined.Flag,
+            "بداية الخطة",
+            "بدأت ${st.startDate?.let { Fmt.shortDate(it).ar() } ?: "-"} · من الوجه ${st.startPage.ar()}",
+        ) {
+            var page by remember(st.startPage) { mutableStateOf(st.startPage.toString()) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = page,
+                    onValueChange = { page = it.filter(Char::isDigit).take(3) },
+                    label = { Text("أبدأ الحفظ من الوجه") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                )
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = {
+                    page.toIntOrNull()?.takeIf { it in 1..604 && it != st.startPage }?.let { pendingStart = it }
+                }) { Text("حفظ") }
+            }
+            Text("غيّره فقط إن كنت تحفظ من موضع غير أول المصحف.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
+        }
+
         Section(Icons.Outlined.Bedtime, "نهاية اليوم", "يبدأ يومك الجديد عند هذا الوقت. ما تنجزه قبله يُحسب لليوم السابق.") {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 presetEnds.forEach { m ->
@@ -128,30 +152,6 @@ fun SettingsScreen(s: UiState, a: Actions) {
                     }
                 }
             }
-        }
-
-        Section(
-            Icons.Outlined.Flag,
-            "بداية الخطة",
-            "بدأت ${st.startDate?.let { Fmt.shortDate(it).ar() } ?: "-"} · من الوجه ${st.startPage.ar()}",
-        ) {
-            var page by remember(st.startPage) { mutableStateOf(st.startPage.toString()) }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = page,
-                    onValueChange = { page = it.filter(Char::isDigit).take(3) },
-                    label = { Text("أبدأ الحفظ من الوجه") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                )
-                Spacer(Modifier.width(8.dp))
-                TextButton(onClick = {
-                    page.toIntOrNull()?.takeIf { it in 1..604 && it != st.startPage }?.let { pendingStart = it }
-                }) { Text("حفظ") }
-            }
-            Text("غيّره فقط إن كنت تحفظ من موضع غير أول المصحف.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
         }
 
         Section(Icons.Outlined.NotificationsActive, "التذكير", "لا يظهر إذا أنهيت يومك.") {

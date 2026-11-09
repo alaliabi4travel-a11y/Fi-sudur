@@ -37,9 +37,10 @@ class ScreensShots {
         var d = start
         while (d.isBefore(today)) {
             if (d.dayOfMonth != 14 && d.dayOfMonth != 27) {
-                val kind = if (d.dayOfWeek == DayOfWeek.FRIDAY) DayKind.OFF else DayKind.MEMO
-                val plan = engine.today(this, 2, PlanRules.defaultRepetitions(2), kind)
-                add(DayEntry(d, kind, plan.newPages))
+                val sick = d.dayOfMonth == 20 || d.dayOfMonth == 21
+                val kind = if (d.dayOfWeek == DayOfWeek.FRIDAY || sick) DayKind.OFF else DayKind.MEMO
+                val plan = engine.today(this, 2, PlanRules.defaultRepetitions(2), kind, d)
+                add(DayEntry(d, kind, plan.newPages, if (sick) "مرض" else null))
             }
             d = d.plusDays(1)
         }

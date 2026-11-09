@@ -66,7 +66,7 @@ interface Actions {
     fun importFrom(uri: android.net.Uri) {}
     fun restoreAutoBackup() {}
     /** Records a past day that was never finished. */
-    fun backfill(date: LocalDate, kind: DayKind) {}
+    fun backfill(date: LocalDate, kind: DayKind, reason: String? = null) {}
     /** Whether a past day can still be recorded as a memorizing day (only the newest gap can). */
     fun canBackfillMemo(s: UiState, date: LocalDate): Boolean =
         date.isBefore(s.planDate) && s.history.none { !it.date.isBefore(date) }

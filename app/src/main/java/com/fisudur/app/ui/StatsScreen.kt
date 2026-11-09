@@ -101,6 +101,28 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
             }
         }
 
+        // The record of days, in the four kinds used across the app.
+        val leave = s.history.count { it.kind == DayKind.OFF && it.reason == null }
+        val excused = s.history.filter { it.kind == DayKind.OFF && it.reason != null }
+        val byReason = excused.groupingBy { it.reason!! }.eachCount()
+        SectionTitle("سجل الأيام")
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            DayTile("حفظ", st.memoDays, MaterialTheme.colorScheme.primary, null, Modifier.weight(1f))
+            DayTile("إجازة", leave, pal.gold, null, Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            DayTile(
+                "عذر", excused.size, pal.done,
+                listOf("عمل", "سفر", "مرض").mapNotNull { r -> byReason[r]?.let { "$r ${it.ar()}" } }.joinToString(" · ").ifEmpty { null },
+                Modifier.weight(1f),
+            )
+            DayTile(
+                "تفريط", st.missedDays, pal.warn,
+                if (st.missedThisMonth > 0) "هذا الشهر ${st.missedThisMonth.ar()}" else null,
+                Modifier.weight(1f),
+            )
+        }
+
         // Streak.
         Panel(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -117,22 +139,13 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
             }
         }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Stat("أيام الحفظ", st.memoDays.ar(), Modifier.weight(1f))
-            Stat("إجازة وعذر", st.offDays.ar(), Modifier.weight(1f))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Stat("أيام الغياب", st.missedDays.ar(), Modifier.weight(1f), if (st.missedDays > 0) pal.warn else pal.ink)
-            Stat("غياب هذا الشهر", st.missedThisMonth.ar(), Modifier.weight(1f), if (st.missedThisMonth > 0) pal.warn else pal.ink)
-        }
-
         SectionTitle("آخر ٢٨ يومًا")
         Panel(Modifier.fillMaxWidth()) {
             LastDays(s) { picked = it }
             Spacer(Modifier.height(14.dp))
             Legend()
             Spacer(Modifier.height(8.dp))
-            Text("اضغط يوم غياب لتسجيله إن كنت أنجزته ونسيت إنهاءه.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
+            Text("اضغط يوم تفريط لتسجيله إن كنت أنجزته أو كان لك عذر.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
         }
         Spacer(Modifier.height(12.dp))
     }
@@ -144,15 +157,19 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
             title = { Text("${Fmt.date(d).ar()}") },
             text = {
                 Text(
-                    if (memoOk) "هذا اليوم انتهى دون تسجيل. كيف تريد أن يُحسب؟"
-                    else "هذا اليوم انتهى دون تسجيل. بعده أيام مسجّلة، فيمكن احتسابه عذرًا فقط حتى لا تتغير صفحاتها.",
+                    if (memoOk) "هذا اليوم انتهى دون تسجيل. هل حفظت فيه، أم كان لك عذر؟"
+                    else "هذا اليوم انتهى دون تسجيل. بعده أيام مسجّلة، فيُحتسب عذرًا فقط حتى لا تتغير صفحاتها. ما العذر؟",
                 )
             },
             confirmButton = {
                 if (memoOk) TextButton(onClick = { a.backfill(d, DayKind.MEMO); picked = null }) { Text("حفظت فيه") }
             },
             dismissButton = {
-                TextButton(onClick = { a.backfill(d, DayKind.OFF); picked = null }) { Text("كان عذرًا") }
+                Row {
+                    listOf("عمل", "سفر", "مرض").forEach { r ->
+                        TextButton(onClick = { a.backfill(d, DayKind.OFF, r); picked = null }) { Text(r) }
+                    }
+                }
             },
         )
     }
@@ -173,7 +190,7 @@ private fun LastDays(s: UiState, onMissed: (LocalDate) -> Unit) {
         days.chunked(7).forEach { week ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 week.forEach { d ->
-                    val (bg, fg) = dayColors(d, byDate[d]?.kind, start, s.planDate)
+                    val (bg, fg) = dayColors(d, byDate[d], start, s.planDate)
                     val missed = byDate[d] == null && !d.isBefore(start) && d.isBefore(s.planDate)
                     Box(
                         Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(bg)
@@ -187,11 +204,12 @@ private fun LastDays(s: UiState, onMissed: (LocalDate) -> Unit) {
 }
 
 @Composable
-private fun dayColors(d: LocalDate, kind: DayKind?, start: LocalDate, today: LocalDate): Pair<Color, Color> {
+private fun dayColors(d: LocalDate, e: com.fisudur.app.engine.DayEntry?, start: LocalDate, today: LocalDate): Pair<Color, Color> {
     val pal = LocalPalette.current
     return when {
-        kind == DayKind.MEMO -> MaterialTheme.colorScheme.primary to Color.White
-        kind == DayKind.OFF -> pal.gold to Color.White
+        e?.kind == DayKind.MEMO -> MaterialTheme.colorScheme.primary to Color.White
+        e?.kind == DayKind.OFF && e.reason != null -> pal.done to Color.White
+        e?.kind == DayKind.OFF -> pal.gold to Color.White
         d == today -> pal.goldSoft to pal.ink
         d.isBefore(start) || d.isAfter(today) -> MaterialTheme.colorScheme.surfaceVariant to pal.muted
         else -> pal.warn.copy(alpha = .8f) to Color.White
@@ -204,7 +222,23 @@ private fun Legend() {
     Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
         LegendItem(MaterialTheme.colorScheme.primary, "حفظ")
         LegendItem(pal.gold, "إجازة")
-        LegendItem(pal.warn.copy(alpha = .8f), "غياب")
+        LegendItem(pal.done, "عذر")
+        LegendItem(pal.warn.copy(alpha = .8f), "تفريط")
+    }
+}
+
+@Composable
+private fun DayTile(label: String, count: Int, color: Color, note: String?, modifier: Modifier) {
+    val pal = LocalPalette.current
+    Panel(modifier, padding = 16.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(color))
+            Spacer(Modifier.width(8.dp))
+            Text(label, style = MaterialTheme.typography.labelLarge, color = pal.muted)
+        }
+        Spacer(Modifier.height(2.dp))
+        Text(count.ar(), style = MaterialTheme.typography.headlineMedium, color = pal.ink)
+        Text(note ?: " ", style = MaterialTheme.typography.bodySmall, color = pal.muted, maxLines = 1)
     }
 }
 

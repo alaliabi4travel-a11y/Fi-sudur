@@ -135,7 +135,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         changed()
     }
 
-    override fun backfill(date: LocalDate, kind: DayKind) {
+    override fun backfill(date: LocalDate, kind: DayKind, reason: String?) {
         val s = _state.value
         if (!date.isBefore(s.planDate) || history.any { it.date == date }) return
         val entry = if (kind == DayKind.MEMO && canBackfillMemo(s, date)) {
@@ -143,12 +143,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
             val pages = PlanEngine(settings.startPage).today(history, settings.amount, reps, DayKind.MEMO, date).newPages
             DayEntry(date, DayKind.MEMO, pages)
         } else {
-            DayEntry(date, DayKind.OFF, null)
+            DayEntry(date, DayKind.OFF, null, reason)
         }
         history = (history + entry).sortedBy { it.date }
         store.saveHistory(history)
         changed()
-        toast(if (entry.kind == DayKind.MEMO) "سُجّل يوم حفظ" else "سُجّل يوم عذر")
+        toast(if (entry.kind == DayKind.MEMO) "سُجّل يوم حفظ" else "سُجّل يوم عذر: ${reason ?: ""}")
     }
 
     override fun exportTo(uri: Uri) {
