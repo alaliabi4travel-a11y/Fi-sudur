@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An open book under a crescent, in lamp-light gold. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#C89A3C"
+        android:pathData="M54,30 a10,10 0 1,0 8,16 a8,8 0 1,1 -8,-16z" />
+    <path android:fillColor="#E9C77E"
+        android:pathData="M30,56 C38,52 46,52 53,57 L53,80 C46,75 38,75 30,79 Z" />
+    <path android:fillColor="#E9C77E"
+        android:pathData="M78,56 C70,52 62,52 55,57 L55,80 C62,75 70,75 78,79 Z" />
+</vector>
