@@ -158,13 +158,13 @@ private fun TodayCard(s: UiState) {
                 Spacer(Modifier.width(12.dp))
                 Ring(
                     progress = if (total > 0) elapsed / total else 0f,
-                    modifier = Modifier.size(96.dp),
+                    modifier = Modifier.size(108.dp),
                     color = pal.gold,
                     track = Color.White.copy(alpha = .14f),
                     width = 5.dp,
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(Fmt.countdown(remaining).ar(), style = MaterialTheme.typography.titleSmall, color = pal.onHero)
+                        Text(Fmt.countdown(remaining).ar(), style = MaterialTheme.typography.titleSmall.copy(fontFamily = Readex), color = pal.onHero, maxLines = 1, softWrap = false)
                         Text("حتى ${Fmt.time(end.toLocalTime()).ar()}", style = MaterialTheme.typography.labelSmall, color = pal.onHeroMuted)
                     }
                 }
