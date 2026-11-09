@@ -106,21 +106,18 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
         val excused = s.history.filter { it.kind == DayKind.OFF && it.reason != null }
         val byReason = excused.groupingBy { it.reason!! }.eachCount()
         SectionTitle("سجل الأيام")
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            DayTile("حفظ", st.memoDays, pal.done, null, Modifier.weight(1f))
-            DayTile("إجازة", leave, pal.gold, null, Modifier.weight(1f))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DayTile("حفظ", st.memoDays, pal.done, Modifier.weight(1f))
+            DayTile("إجازة", leave, pal.gold, Modifier.weight(1f))
+            DayTile("عذر", excused.size, pal.excuse, Modifier.weight(1f))
+            DayTile("تفريط", st.missedDays, pal.warn, Modifier.weight(1f))
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            DayTile(
-                "عذر", excused.size, pal.excuse,
-                listOf("عمل", "سفر", "مرض").mapNotNull { r -> byReason[r]?.let { "$r ${it.ar()}" } }.joinToString(" · ").ifEmpty { null },
-                Modifier.weight(1f),
-            )
-            DayTile(
-                "تفريط", st.missedDays, pal.warn,
-                if (st.missedThisMonth > 0) "هذا الشهر ${st.missedThisMonth.ar()}" else null,
-                Modifier.weight(1f),
-            )
+        val notes = listOfNotNull(
+            listOf("عمل", "سفر", "مرض").mapNotNull { r -> byReason[r]?.let { "$r ${it.ar()}" } }.joinToString(" · ").ifEmpty { null }?.let { "العذر: $it" },
+            if (st.missedThisMonth > 0) "التفريط هذا الشهر: ${st.missedThisMonth.ar()}" else null,
+        )
+        if (notes.isNotEmpty()) {
+            Text(notes.joinToString("  ·  "), style = MaterialTheme.typography.bodySmall, color = pal.muted)
         }
 
         // Streak.
@@ -228,17 +225,16 @@ private fun Legend() {
 }
 
 @Composable
-private fun DayTile(label: String, count: Int, color: Color, note: String?, modifier: Modifier) {
+private fun DayTile(label: String, count: Int, color: Color, modifier: Modifier) {
     val pal = LocalPalette.current
-    Panel(modifier, padding = 12.dp) {
+    Panel(modifier, padding = 10.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(10.dp).clip(RoundedCornerShape(3.dp)).background(color))
-            Spacer(Modifier.width(8.dp))
-            Text(label, style = MaterialTheme.typography.labelLarge, color = pal.muted)
+            Box(Modifier.size(8.dp).clip(RoundedCornerShape(2.dp)).background(color))
+            Spacer(Modifier.width(6.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, color = pal.muted, maxLines = 1)
         }
         Spacer(Modifier.height(2.dp))
-        Text(count.ar(), style = MaterialTheme.typography.headlineMedium, color = pal.ink)
-        note?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = pal.muted, maxLines = 1) }
+        Text(count.ar(), style = MaterialTheme.typography.headlineSmall, color = pal.ink)
     }
 }
 

@@ -73,9 +73,9 @@ private val LightPalette = Palette(
     muted = Color(0xFF6B6F7C),
     card = Color(0xFFFFFDF8),
     line = Color(0xFFE7DEC9),
-    done = Color(0xFF2F7D5B),
-    warn = Color(0xFFB4483C),
-    excuse = Color(0xFF4F7CAC),
+    done = Color(0xFF3E8E6A),
+    warn = Color(0xFFC0574A),
+    excuse = Color(0xFF5B7FA8),
 )
 
 private val DarkPalette = Palette(
@@ -88,9 +88,9 @@ private val DarkPalette = Palette(
     muted = Color(0xFFA2A7B5),
     card = Color(0xFF16213C),
     line = Color(0xFF26324F),
-    done = Color(0xFF5FBF92),
-    warn = Color(0xFFE07A6E),
-    excuse = Color(0xFF7FA8D6),
+    done = Color(0xFF66C29A),
+    warn = Color(0xFFE5857A),
+    excuse = Color(0xFF8FB0D8),
 )
 
 val LocalPalette = staticCompositionLocalOf { LightPalette }
