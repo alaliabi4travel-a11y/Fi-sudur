@@ -51,7 +51,11 @@ object Updater {
                     if (a.optString("name").endsWith(".apk")) apk = a.optString("browser_download_url")
                 }
             }
-            val notes = body.lines().firstOrNull { it.isNotBlank() && !it.startsWith("versionCode") }.orEmpty()
+            // Only the Arabic lines are notes for the reader; the rest is build bookkeeping.
+            val arabic = Regex("[\\u0600-\\u06FF]")
+            val notes = body.lines().map { it.trim().removePrefix("-").removePrefix("•").trim() }
+                .filter { it.isNotBlank() && arabic.containsMatchIn(it) }
+                .joinToString("\n") { "• $it" }
             UpdateInfo(code, o.optString("tag_name").removePrefix("v"), apk, notes)
         } finally {
             conn.disconnect()

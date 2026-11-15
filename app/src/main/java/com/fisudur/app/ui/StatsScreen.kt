@@ -113,11 +113,12 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
             DayTile("تفريط", st.missedDays, pal.warn, Modifier.weight(1f))
         }
         val notes = listOfNotNull(
-            listOf("عمل", "سفر", "مرض").mapNotNull { r -> byReason[r]?.let { "$r ${it.ar()}" } }.joinToString("، ").ifEmpty { null }?.let { "العذر: $it" },
-            if (st.missedThisMonth > 0) "التفريط هذا الشهر: ${st.missedThisMonth.ar()}" else null,
+            listOf("عمل", "سفر", "مرض").mapNotNull { r -> byReason[r]?.let { "$r ${daysText(it.toLong())}" } }
+                .joinToString("، ").ifEmpty { null }?.let { "أسباب العذر: $it" },
+            if (st.missedThisMonth > 0) "التفريط هذا الشهر: ${daysText(st.missedThisMonth.toLong())}" else null,
         )
         if (notes.isNotEmpty()) {
-            Text(notes.joinToString(" | "), style = MaterialTheme.typography.bodySmall, color = pal.muted)
+            Text(notes.joinToString("\n"), style = MaterialTheme.typography.bodySmall, color = pal.muted)
         }
 
         // Streak.

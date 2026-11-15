@@ -46,7 +46,8 @@ fun UpdateBanner(u: UpdateState, a: Actions) {
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleSmall, color = pal.ink)
                 if (u is UpdateState.Available && u.info.notes.isNotBlank()) {
-                    Text(u.info.notes, style = MaterialTheme.typography.bodySmall, color = pal.muted, maxLines = 2)
+                    Spacer(Modifier.height(2.dp))
+                    Text(u.info.notes, style = MaterialTheme.typography.bodySmall, color = pal.muted, maxLines = 5)
                 }
             }
             Text(action, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)

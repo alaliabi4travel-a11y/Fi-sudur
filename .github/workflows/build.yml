@@ -72,6 +72,6 @@ jobs:
           gh release create "v1.0.${{ github.run_number }}" "fi-sudur-1.0.${{ github.run_number }}.apk" $(ls shots/*.png 2>/dev/null) \
             $channel \
             --title "في صدور 1.0.${{ github.run_number }}" \
-            --notes "$(git log -1 --pretty=%s | sed 's/ *\[release\]//')
+            --notes "$(if [ -s release-notes.txt ]; then cat release-notes.txt; else git log -1 --pretty=%s | sed 's/ *\[release\]//'; fi)
 
           versionCode=${{ github.run_number }}"

@@ -41,6 +41,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
 
     private var ticker: Job? = null
 
+    /** When updates were last looked for; the app checks again on return after a few hours. */
+    private var lastUpdateCheck = 0L
+
     init {
         checkUpdate(quiet = true)
         runCatching { store.autoBackup() }
@@ -58,6 +61,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
             // The day-end alarm may have recorded a day while the app was in the background.
             history = store.loadHistory()
             refresh()
+            if (System.currentTimeMillis() - lastUpdateCheck > 3 * 60 * 60 * 1000L) checkUpdate(quiet = true)
             ticker = viewModelScope.launch {
                 while (true) {
                     delay(1000)
@@ -275,7 +279,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
     override fun checkUpdate() = checkUpdate(quiet = false)
 
     private fun checkUpdate(quiet: Boolean) {
-        if (update is UpdateState.Downloading) return
+        if (update is UpdateState.Downloading || update is UpdateState.Ready) return
+        lastUpdateCheck = System.currentTimeMillis()
         if (!quiet) setUpdate(UpdateState.Checking)
         viewModelScope.launch {
             val result = runCatching { Updater.latest() }
