@@ -406,6 +406,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
     override fun checkUpdate() = checkUpdate(quiet = false)
 
     private fun checkUpdate(quiet: Boolean) {
+        if (!BuildConfig.SELF_UPDATE) return
         if (update is UpdateState.Downloading || update is UpdateState.Ready) return
         lastUpdateCheck = System.currentTimeMillis()
         if (!quiet) setUpdate(UpdateState.Checking)

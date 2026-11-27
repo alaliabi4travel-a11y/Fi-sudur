@@ -241,7 +241,9 @@ fun SettingsScreen(s: UiState, a: Actions) {
             )
         }
 
-        Section(Icons.Outlined.SystemUpdate, "التحديثات", "الإصدار ${BuildConfig.VERSION_NAME.ar()}") {
+        if (!BuildConfig.SELF_UPDATE) {
+            Section(Icons.Outlined.SystemUpdate, "الإصدار", "${BuildConfig.VERSION_NAME.ar()}، التحديث من متجر Google Play") {}
+        } else Section(Icons.Outlined.SystemUpdate, "التحديثات", "الإصدار ${BuildConfig.VERSION_NAME.ar()}") {
             when (val u = s.update) {
                 is UpdateState.Available, is UpdateState.Downloading, is UpdateState.Ready -> UpdateBanner(u, a)
                 else -> {

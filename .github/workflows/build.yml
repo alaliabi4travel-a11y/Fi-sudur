@@ -28,7 +28,12 @@ jobs:
 
       - name: Build check (pull requests only, never published)
         if: github.event_name == 'pull_request'
-        run: ./gradlew --no-daemon assembleDebug
+        run: |
+          ./gradlew --no-daemon assembleDebug
+          ./gradlew --no-daemon -Pplay processReleaseManifest
+          f=$(find app/build/intermediates -path '*merged_manifest*' -path '*release*' -name AndroidManifest.xml | head -1)
+          echo "Play manifest: $f"; test -n "$f"
+          if grep -q REQUEST_INSTALL_PACKAGES "$f"; then echo "::error::Play build still asks to install packages"; exit 1; fi
 
       - name: Screenshots of every screen
         if: github.event_name != 'pull_request'
@@ -66,6 +71,25 @@ jobs:
         run: |
           ./gradlew --no-daemon assembleRelease
           cp app/build/outputs/apk/release/app-release.apk "fi-sudur-1.0.${{ github.run_number }}.apk"
+
+      - name: Google Play bundle (no self-updater)
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+          SIGNING_STORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          SIGNING_KEY_ALIAS: fisudur
+          SIGNING_KEY_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: ./gradlew --no-daemon -Pplay bundleRelease
+
+      - name: Keep the Play bundle with this run
+        if: github.event_name != 'pull_request'
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: fi-sudur-play-1.0.${{ github.run_number }}
+          path: app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: ignore
 
       - name: Publish release
         if: github.event_name != 'pull_request'

@@ -67,6 +67,7 @@ fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
     var confirmFinish by remember { mutableStateOf(false) }
     var marking by remember { mutableStateOf<Step?>(null) }
     var page by remember { mutableStateOf<Step?>(null) }
+    var viewing by remember { mutableStateOf<com.fisudur.app.engine.PageRange?>(null) }
     var recordOpen by remember { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         FillScreen(
@@ -96,7 +97,21 @@ fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
             }
         }
     }
-    marking?.let { step -> WeakPagesDialog(step, s.weak, a) { marking = null } }
+    marking?.let { step ->
+        WeakPagesDialog(step, s.weak, a, onView = { viewing = it; marking = null }) { marking = null }
+    }
+    viewing?.let { range ->
+        // The pages of linking, yesterday or review, to read along or listen; no counting here.
+        PageScreen(
+            pages = range,
+            reciter = s.settings.reciter,
+            showTafsir = false,
+            listened = 0,
+            listenTarget = 0,
+            onListened = {},
+            onClose = { viewing = null },
+        )
+    }
     val newPages = s.plan.newPages
     if (newPages != null) {
         page?.let { step ->
@@ -300,7 +315,13 @@ private fun Timeline(
 /** Pick the pages of a step that slipped: each gets a few days of extra readings. */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun WeakPagesDialog(step: Step, weak: Map<Int, Int>, a: Actions, onDone: () -> Unit) {
+private fun WeakPagesDialog(
+    step: Step,
+    weak: Map<Int, Int>,
+    a: Actions,
+    onView: (com.fisudur.app.engine.PageRange) -> Unit,
+    onDone: () -> Unit,
+) {
     val pal = LocalPalette.current
     AlertDialog(
         onDismissRequest = onDone,
@@ -322,6 +343,15 @@ private fun WeakPagesDialog(step: Step, weak: Map<Int, Int>, a: Actions, onDone:
             }
         },
         confirmButton = { TextButton(onClick = onDone) { Text("تم") } },
+        dismissButton = {
+            // The first run of consecutive pages (a review that wraps has two).
+            val pages = step.pageList
+            if (pages.isNotEmpty()) {
+                var end = 0
+                while (end + 1 < pages.size && pages[end + 1] == pages[end] + 1) end++
+                TextButton(onClick = { onView(com.fisudur.app.engine.PageRange(pages[0], pages[end])) }) { Text("اعرض الأوجه") }
+            }
+        },
     )
 }
 
