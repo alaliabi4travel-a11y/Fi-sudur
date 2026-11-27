@@ -28,6 +28,23 @@ object Fmt {
 
     fun shortDate(d: LocalDate): String = "${d.dayOfMonth} ${months[d.monthValue - 1]} ${d.year}"
 
+    private val hijriMonths = listOf(
+        "محرم", "صفر", "ربيع الأول", "ربيع الآخر", "جمادى الأولى", "جمادى الآخرة",
+        "رجب", "شعبان", "رمضان", "شوال", "ذو القعدة", "ذو الحجة",
+    )
+
+    /** The Hijri date by the Umm al-Qura calendar, e.g. "٦ جمادى الآخرة ١٤٤٨" (digits left to the caller). */
+    fun hijri(d: LocalDate): String? = runCatching {
+        val h = java.time.chrono.HijrahDate.from(d)
+        val day = h.get(java.time.temporal.ChronoField.DAY_OF_MONTH)
+        val month = h.get(java.time.temporal.ChronoField.MONTH_OF_YEAR)
+        val year = h.get(java.time.temporal.ChronoField.YEAR)
+        "$day ${hijriMonths[month - 1]} $year"
+    }.getOrNull()
+
+    /** Short names for calendar column heads, Saturday first. */
+    val weekInitials = listOf("س", "ح", "ن", "ث", "ر", "خ", "ج")
+
     fun time(t: LocalTime): String {
         val h = t.hour
         val period = if (h < 12) "ص" else "م"

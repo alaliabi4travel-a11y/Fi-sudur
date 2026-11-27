@@ -42,15 +42,24 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.fisudur.app.Actions
+import com.fisudur.app.engine.PlanEngine
 import java.time.LocalTime
 
-private data class PlanChoice(val amount: Int, val title: String, val reps: Int, val days: Int)
+private data class PlanChoice(val amount: Int, val title: String, val reps: Int)
 
 private val choices = listOf(
-    PlanChoice(1, "حفظ وجه", 40, 620),
-    PlanChoice(2, "حفظ وجهين", 40, 320),
-    PlanChoice(3, "حفظ ثلاثة أوجه", 30, 218),
+    PlanChoice(1, "حفظ وجه", 40),
+    PlanChoice(2, "حفظ وجهين", 40),
+    PlanChoice(3, "حفظ ثلاثة أوجه", 30),
 )
+
+/** Calendar days to the end of the mushaf from [startPage], with Friday off as the default plan has it. */
+private fun daysToFinish(amount: Int, startPage: Int): Int {
+    val today = java.time.LocalDate.now()
+    val finish = PlanEngine(startPage).projectedFinish(startPage - 1, amount, today, setOf(java.time.DayOfWeek.FRIDAY))
+        ?: return 0
+    return java.time.temporal.ChronoUnit.DAYS.between(today, finish).toInt() + 1
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -82,7 +91,8 @@ fun SetupScreen(a: Actions) {
 
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             SectionTitle("اختر خطتك")
-            choices.forEach { c -> PlanCard(c, c.amount == amount) { amount = c.amount } }
+            val from = page.toIntOrNull()?.coerceIn(1, 604) ?: 1
+            choices.forEach { c -> PlanCard(c, daysToFinish(c.amount, from), c.amount == amount) { amount = c.amount } }
             Text("يمكنك تغيير المقدار لاحقًا في أي يوم.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
 
             SectionTitle("متى ينتهي يومك؟")
@@ -118,7 +128,7 @@ fun SetupScreen(a: Actions) {
 }
 
 @Composable
-private fun PlanCard(c: PlanChoice, selected: Boolean, onClick: () -> Unit) {
+private fun PlanCard(c: PlanChoice, days: Int, selected: Boolean, onClick: () -> Unit) {
     val pal = LocalPalette.current
     val border by animateColorAsState(if (selected) pal.gold else pal.line, label = "plan")
     Row(
@@ -137,7 +147,7 @@ private fun PlanCard(c: PlanChoice, selected: Boolean, onClick: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(c.title, style = MaterialTheme.typography.titleMedium, color = pal.ink)
             Text(
-                "تكرار ${c.reps.ar()} مرة، نحو ${c.days.ar()} يومًا",
+                "تكرار ${c.reps.ar()} مرة، نحو ${daysText(days.toLong())} مع إجازة الجمعة",
                 style = MaterialTheme.typography.bodySmall,
                 color = pal.muted,
             )

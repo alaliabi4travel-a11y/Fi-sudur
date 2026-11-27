@@ -125,17 +125,37 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
     }
 
     override fun toggle(stepId: String) {
+        val step = _state.value.steps.firstOrNull { it.id == stepId } ?: return
         // The repetition step follows the counter only; it cannot be ticked by hand.
-        if (_state.value.steps.firstOrNull { it.id == stepId }?.action == StepAction.COUNTER) return
-        toggleStep(stepId)
+        if (step.action == StepAction.COUNTER) return
+        update { p -> toggled(p, step) }
     }
 
-    private fun toggleStep(stepId: String) = update { p ->
-        p.copy(checked = if (stepId in p.checked) p.checked - stepId else p.checked + stepId)
+    /**
+     * Ticks or unticks a step. A step read several times keeps its count in step with
+     * its tick: unticking starts the count again, ticking fills it.
+     */
+    private fun toggled(p: DayProgress, step: Step): DayProgress {
+        val on = step.id !in p.checked
+        val checked = if (on) p.checked + step.id else p.checked - step.id
+        val tallies = when {
+            step.action != StepAction.TALLY -> p.tallies
+            on -> p.tallies + (step.id to step.target)
+            else -> p.tallies - step.id
+        }
+        return p.copy(checked = checked, tallies = tallies)
+    }
+
+    /** One more reading; it stops at the target, so an extra tap never loses the count. */
+    private fun tallied(p: DayProgress, step: Step): DayProgress {
+        val n = (p.tallies[step.id] ?: 0) + 1
+        if (n > step.target) return p
+        return p.copy(tallies = p.tallies + (step.id to n), checked = if (n == step.target) p.checked + step.id else p.checked)
     }
 
     override fun setCounter(value: Int) {
-        val target = _state.value.plan.repetitions
+        // No new pages (an off day, or after the whole Quran): a free counter with no target.
+        val target = if (_state.value.plan.newPages != null) _state.value.plan.repetitions else 0
         update { p ->
             val v = value.coerceAtLeast(0)
             val checked = if (target > 0 && v >= target) p.checked + "repeat" else p.checked - "repeat"
@@ -144,16 +164,9 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
     }
 
     override fun tally(stepId: String) {
-        val target = _state.value.steps.firstOrNull { it.id == stepId }?.target ?: return
-        update { p ->
-            val n = (p.tallies[stepId] ?: 0) + 1
-            if (n > target) {
-                // One tap past the target starts the count again and unchecks the step.
-                p.copy(tallies = p.tallies - stepId, checked = p.checked - stepId)
-            } else {
-                p.copy(tallies = p.tallies + (stepId to n), checked = if (n == target) p.checked + stepId else p.checked)
-            }
-        }
+        val step = _state.value.steps.firstOrNull { it.id == stepId } ?: return
+        if ((_state.value.progress.tallies[stepId] ?: 0) >= step.target) return
+        update { p -> tallied(p, step) }
     }
 
     private fun updateNext(block: (DayProgress) -> DayProgress) {
@@ -167,16 +180,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
     override fun toggleNext(stepId: String) {
         val step = _state.value.tomorrow?.steps?.firstOrNull { it.id == stepId } ?: return
         if (step.action == StepAction.COUNTER) return
-        updateNext { p -> p.copy(checked = if (stepId in p.checked) p.checked - stepId else p.checked + stepId) }
+        updateNext { p -> toggled(p, step) }
     }
 
     override fun tallyNext(stepId: String) {
-        val target = _state.value.tomorrow?.steps?.firstOrNull { it.id == stepId }?.target ?: return
-        updateNext { p ->
-            val n = (p.tallies[stepId] ?: 0) + 1
-            if (n > target) p.copy(tallies = p.tallies - stepId, checked = p.checked - stepId)
-            else p.copy(tallies = p.tallies + (stepId to n), checked = if (n == target) p.checked + stepId else p.checked)
-        }
+        val step = _state.value.tomorrow?.steps?.firstOrNull { it.id == stepId } ?: return
+        updateNext { p -> tallied(p, step) }
     }
 
     override fun setTodayKind(kind: DayKind?, reason: String?) =
@@ -254,6 +263,18 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
     }
 
     override fun saveSettings(new: Settings) {
+        if (new.dayEndMinutes != settings.dayEndMinutes) {
+            // The plan date of this moment may move with the new day end; today's progress moves too.
+            val now = LocalDateTime.now()
+            val moved = carryProgress(settings.dayEnd, new.dayEnd, now, progress, history)
+            if (moved != progress && moved != null) {
+                val shift = java.time.temporal.ChronoUnit.DAYS.between(progress!!.date, moved.date)
+                progress = moved
+                store.saveProgress(moved)
+                nextProgress = nextProgress?.let { it.copy(date = it.date.plusDays(shift)) }
+                store.saveNextProgress(nextProgress)
+            }
+        }
         settings = new
         store.saveSettings(new)
         changed()

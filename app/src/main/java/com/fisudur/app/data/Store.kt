@@ -44,6 +44,22 @@ data class DayProgress(
 class Store(context: Context) {
     private val prefs = context.getSharedPreferences("fisudur", Context.MODE_PRIVATE)
 
+    init { migrateLateDayEnd() }
+
+    /**
+     * A day ending after noon used to be named after the date it starts on; it is now named
+     * after the date it ends on (see DayClock). Once, the day in progress moves to its new name.
+     * Here, so it runs before anything reads the store: the app, the widget or the day-end alarm.
+     */
+    private fun migrateLateDayEnd() {
+        if (flag("lateDayNamed")) return
+        if (loadSettings().dayEndMinutes > 12 * 60) {
+            loadProgress()?.let { saveProgress(it.copy(date = it.date.plusDays(1))) }
+            loadNextProgress()?.let { saveNextProgress(it.copy(date = it.date.plusDays(1))) }
+        }
+        setFlag("lateDayNamed")
+    }
+
     fun loadSettings(): Settings {
         val s = prefs.getString("settings", null) ?: return Settings()
         val o = JSONObject(s)
@@ -70,7 +86,7 @@ class Store(context: Context) {
             .put("startPage", s.startPage)
             .put("remind", s.reminderMinutes ?: JSONObject.NULL)
             .put("late", s.lateReminder)
-        prefs.edit().putString("settings", o.toString()).apply()
+        prefs.edit().putString("settings", o.toString()).commit()
     }
 
     fun loadHistory(): List<DayEntry> {
@@ -95,7 +111,8 @@ class Store(context: Context) {
             e.reason?.let { o.put("r", it) }
             a.put(o)
         }
-        prefs.edit().putString("history", a.toString()).apply()
+        // Written at once: the day-end alarm saves from the background, where the process may stop right after.
+        prefs.edit().putString("history", a.toString()).commit()
     }
 
     fun loadProgress(): DayProgress? = readProgress("progress")
@@ -134,8 +151,17 @@ class Store(context: Context) {
         prefs.edit().putString(key, o.toString()).commit()
     }
 
+    /** One-time markers, such as a migration that has run. Kept apart from the plan, so a restore never resets them. */
+    fun flag(name: String): Boolean = prefs.getBoolean("flag_$name", false)
+
+    fun setFlag(name: String) {
+        prefs.edit().putBoolean("flag_$name", true).commit()
+    }
+
     fun clearAll() {
-        prefs.edit().clear().apply()
+        val e = prefs.edit()
+        prefs.all.keys.filterNot { it.startsWith("flag_") }.forEach { e.remove(it) }
+        e.commit()
     }
 
     // ---- Backup ------------------------------------------------------------
@@ -168,8 +194,9 @@ class Store(context: Context) {
                 val p = o.opt("progress")
                 if (p is JSONObject) putString("progress", p.toString()) else remove("progress")
             }
+            .remove("next")
             .putInt("schema", SCHEMA)
-            .apply()
+            .commit()
     }
 
     private val backupDir = java.io.File(context.filesDir, "backups").apply { mkdirs() }

@@ -131,9 +131,12 @@ private fun TodayCard(s: UiState) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(
-                        "${Fmt.day(s.planDate.dayOfWeek)}، ${Fmt.shortDate(s.planDate).ar()}",
+                        "${Fmt.day(s.planDate.dayOfWeek)}، ${Fmt.shortDate(s.planDate).ar()}" +
+                            (Fmt.hijri(s.planDate)?.let { "، ${it.ar()} هـ" } ?: ""),
                         style = MaterialTheme.typography.labelMedium,
                         color = pal.gold,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                     )
                     Spacer(Modifier.height(2.dp))
                     when {

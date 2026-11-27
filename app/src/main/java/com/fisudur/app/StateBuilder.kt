@@ -10,6 +10,7 @@ import com.fisudur.app.engine.PlanRules
 import com.fisudur.app.engine.Stats
 import com.fisudur.app.engine.StatsCalculator
 import com.fisudur.app.engine.TodayPlan
+import com.fisudur.app.ui.ar
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -108,13 +109,33 @@ fun autoFinishEntry(settings: Settings, history: List<DayEntry>, stored: DayProg
     if (stored == null || settings.startDate == null || !stored.date.isBefore(today)) return null
     if (stored.date.isBefore(settings.startDate) || history.any { it.date == stored.date }) return null
     // A moment just after that day began, so the plan is rebuilt exactly as it was.
-    val then = stored.date.atTime(settings.dayEnd).plusMinutes(1)
+    val then = DayClock(settings.dayEnd).startOf(stored.date).plusMinutes(1)
     val old = buildUiState(then, settings, history, stored)
     if (old.planDate != stored.date) return null
     val chosenOff = stored.kindOverride == DayKind.OFF && stored.reason != null
     val complete = old.steps.isNotEmpty() && old.allChecked
     if (!chosenOff && !complete) return null
     return DayEntry(old.planDate, old.plan.kind, old.plan.newPages, stored.reason.takeIf { old.plan.kind == DayKind.OFF })
+}
+
+/**
+ * When the day end changes, the plan date of this moment can move (changing midnight to
+ * 04:00 at 01:00 turns "today" into yesterday's date). Today's progress moves with it,
+ * so nothing ticked or counted is lost. Unchanged when the date stays, or the new date
+ * is already recorded.
+ */
+fun carryProgress(
+    oldEnd: java.time.LocalTime,
+    newEnd: java.time.LocalTime,
+    now: LocalDateTime,
+    progress: DayProgress?,
+    history: List<DayEntry>,
+): DayProgress? {
+    if (progress == null) return null
+    val was = DayClock(oldEnd).planDate(now)
+    val becomes = DayClock(newEnd).planDate(now)
+    if (was == becomes || progress.date != was || history.any { it.date == becomes }) return progress
+    return progress.copy(date = becomes)
 }
 
 private fun stepsFor(plan: TodayPlan): List<Step> {
@@ -140,7 +161,10 @@ private fun stepsFor(plan: TodayPlan): List<Step> {
         val pages = if (w != null) "${it.label} ثم ${w.label}" else it.label
         val surahs = if (w != null && w.surahs != it.surahs) "${it.surahs} ثم ${w.surahs}" else it.surahs
         val count = it.count + (w?.count ?: 0)
-        list += Step("review", StepKind.REVIEW, "المراجعة", pages, surahs, "مرة واحدة غيبًا، ${com.fisudur.app.ui.pagesText(count)}")
+        // Which pass over the old pages this is; a day that reaches the end closes it.
+        val round = if (w != null) plan.round else plan.round + 1
+        val title = "المراجعة، الجولة ${round.ar()}"
+        list += Step("review", StepKind.REVIEW, title, pages, surahs, "مرة واحدة غيبًا، ${com.fisudur.app.ui.pagesText(count)}")
     }
     return list
 }

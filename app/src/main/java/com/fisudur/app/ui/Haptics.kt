@@ -60,7 +60,7 @@ class HapticActions(private val a: Actions, private val s: UiState, private val 
     override fun tallyNext(stepId: String) { s.tomorrow?.let { t -> stepTally(t, stepId) { a.tallyNext(stepId) } } }
 
     override fun setCounter(value: Int) {
-        val target = s.plan.repetitions
+        val target = if (s.plan.newPages != null) s.plan.repetitions else 0
         when {
             value < s.progress.counter -> h.undo()
             target > 0 && value == target -> h.success()
@@ -99,7 +99,7 @@ class HapticActions(private val a: Actions, private val s: UiState, private val 
         val step = st.steps.firstOrNull { it.id == stepId } ?: return go()
         val n = (st.progress.tallies[stepId] ?: 0) + 1
         when {
-            n > step.target -> h.undo()
+            n > step.target -> {}
             n == step.target -> h.success()
             else -> h.tick()
         }

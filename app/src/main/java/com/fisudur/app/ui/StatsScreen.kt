@@ -60,7 +60,8 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
                     Text("من ٦٠٤ في المصحف", style = MaterialTheme.typography.bodyLarge, color = pal.onHeroMuted)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "الجزء ${st.currentJuz.ar()}، بقي ${pagesText(st.pagesRemaining)}",
+                        "الجزء ${st.currentJuz.ar()}، بقي ${pagesText(st.pagesRemaining)}" +
+                            (if (s.plan.review != null) "\nجولة المراجعة ${(if (s.plan.reviewWrap != null) s.plan.round else s.plan.round + 1).ar()}" else ""),
                         style = MaterialTheme.typography.bodySmall,
                         color = pal.onHeroMuted,
                     )
@@ -132,12 +133,12 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("أطول استمرار", style = MaterialTheme.typography.labelMedium, color = pal.muted)
-                    Text(st.longestStreak.ar(), style = MaterialTheme.typography.titleLarge, color = pal.gold)
+                    Text(daysText(st.longestStreak.toLong()), style = MaterialTheme.typography.titleLarge, color = pal.gold)
                 }
             }
         }
 
-        SectionTitle("آخر ٢٨ يومًا")
+        SectionTitle("آخر أربعة أسابيع")
         Panel(Modifier.fillMaxWidth()) {
             LastDays(s) { picked = it }
             Spacer(Modifier.height(14.dp))
@@ -183,8 +184,22 @@ private fun amountLabel(n: Int) = when (n) {
 private fun LastDays(s: UiState, onMissed: (LocalDate) -> Unit) {
     val byDate = s.history.associateBy { it.date }
     val start = s.settings.startDate ?: s.planDate
-    val days = (27 downTo 0).map { s.planDate.minusDays(it.toLong()) }
+    // Four whole weeks, Saturday to Friday, the last one holding today: each column is one weekday.
+    val sinceSaturday = (s.planDate.dayOfWeek.value - java.time.DayOfWeek.SATURDAY.value + 7) % 7
+    val first = s.planDate.minusDays(sinceSaturday.toLong() + 21)
+    val days = (0 until 28).map { first.plusDays(it.toLong()) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Fmt.weekInitials.forEach { n ->
+                Text(
+                    n,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = LocalPalette.current.muted,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
         days.chunked(7).forEach { week ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 week.forEach { d ->

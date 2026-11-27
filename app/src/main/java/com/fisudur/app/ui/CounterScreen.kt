@@ -51,9 +51,10 @@ import com.fisudur.app.UiState
 @Composable
 fun CounterScreen(s: UiState, a: Actions) {
     val pal = LocalPalette.current
-    val target = s.plan.repetitions
-    val count = s.progress.counter
     val pages = s.plan.newPages
+    // With no new pages (an off day, or after the whole Quran) it is a free counter.
+    val target = if (pages != null) s.plan.repetitions else 0
+    val count = s.progress.counter
     val done = target > 0 && count >= target
     val press = remember { MutableInteractionSource() }
     val pressed by press.collectIsPressedAsState()

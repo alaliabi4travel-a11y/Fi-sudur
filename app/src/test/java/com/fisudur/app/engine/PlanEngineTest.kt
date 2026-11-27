@@ -133,6 +133,37 @@ class PlanEngineTest {
         assertEquals(LocalDateTime.of(2026, 11, 10, 4, 0), clock.dayEnd(LocalDateTime.of(2026, 11, 9, 13, 0)))
     }
 
+    @Test fun dayClockWithMidnightEnd() {
+        val clock = DayClock(LocalTime.MIDNIGHT)
+        assertEquals(LocalDate.of(2026, 11, 9), clock.planDate(LocalDateTime.of(2026, 11, 9, 23, 59)))
+        assertEquals(LocalDateTime.of(2026, 11, 10, 0, 0), clock.dayEnd(LocalDateTime.of(2026, 11, 9, 13, 0)))
+        assertEquals(LocalDateTime.of(2026, 11, 9, 0, 0), clock.dayStart(LocalDateTime.of(2026, 11, 9, 13, 0)))
+    }
+
+    @Test fun lateDayEndIsNamedAfterTheDateItEndsOn() {
+        // Day ends at 22:00: "Friday" runs from Thursday 22:00 to Friday 22:00.
+        val clock = DayClock(LocalTime.of(22, 0))
+        val friday = LocalDate.of(2026, 11, 27)
+        assertEquals(DayOfWeek.FRIDAY, friday.dayOfWeek)
+        assertEquals(friday, clock.planDate(LocalDateTime.of(2026, 11, 26, 22, 0)))
+        assertEquals(friday, clock.planDate(LocalDateTime.of(2026, 11, 27, 21, 59)))
+        assertEquals(friday.plusDays(1), clock.planDate(LocalDateTime.of(2026, 11, 27, 22, 0)))
+        assertEquals(LocalDateTime.of(2026, 11, 26, 22, 0), clock.startOf(friday))
+        assertEquals(LocalDateTime.of(2026, 11, 27, 22, 0), clock.dayEnd(LocalDateTime.of(2026, 11, 27, 9, 0)))
+        assertEquals(clock.planDate(clock.startOf(friday)), friday)
+    }
+
+    @Test fun startOfIsTheMomentTheNamedDayBegins() {
+        for (end in listOf(LocalTime.MIDNIGHT, LocalTime.of(4, 0), LocalTime.of(12, 0), LocalTime.of(13, 30), LocalTime.of(23, 0))) {
+            val clock = DayClock(end)
+            val d = LocalDate.of(2026, 3, 1)
+            val start = clock.startOf(d)
+            assertEquals("$end", d, clock.planDate(start))
+            assertEquals("$end", d.minusDays(1), clock.planDate(start.minusMinutes(1)))
+            assertEquals("$end", start.plusDays(1), clock.dayEnd(start))
+        }
+    }
+
     @Test fun projectedFinishSkipsFridays() {
         val finish = engine.projectedFinish(100, 2, LocalDate.of(2026, 11, 9), setOf(DayOfWeek.FRIDAY))!!
         // 504 pages = 252 memorizing days = 42 weeks of 6 days.

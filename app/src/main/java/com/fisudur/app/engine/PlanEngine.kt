@@ -200,17 +200,30 @@ class PlanEngine(
 /**
  * The person's own day: it ends at [endTime] (midnight by default, or e.g. 04:00)
  * and the next day starts at that same moment.
+ *
+ * A day is named after the calendar date most of it falls on: with an early end
+ * (midnight to noon, e.g. 04:00) that is the date it starts on, so 02:00 still counts
+ * as the evening before; with a late end (after noon, e.g. 22:00) it is the date it
+ * ends on, so Friday runs from Thursday 22:00 to Friday 22:00.
  */
 class DayClock(private val endTime: LocalTime) {
     private val shift: Duration = Duration.ofSeconds(endTime.toSecondOfDay().toLong())
+    private val late: Boolean = endTime.isAfter(LocalTime.NOON)
 
-    /** The plan date that [now] belongs to. Before 04:00 still counts as the previous date. */
-    fun planDate(now: LocalDateTime): LocalDate = now.minus(shift).toLocalDate()
+    /** The plan date that [now] belongs to. */
+    fun planDate(now: LocalDateTime): LocalDate {
+        val base = now.minus(shift).toLocalDate()
+        return if (late) base.plusDays(1) else base
+    }
+
+    /** When the plan day named [date] begins. */
+    fun startOf(date: LocalDate): LocalDateTime =
+        (if (late) date.minusDays(1) else date).atStartOfDay().plus(shift)
 
     /** When the plan day containing [now] ends. */
-    fun dayEnd(now: LocalDateTime): LocalDateTime = planDate(now).plusDays(1).atStartOfDay().plus(shift)
+    fun dayEnd(now: LocalDateTime): LocalDateTime = startOf(planDate(now).plusDays(1))
 
-    fun dayStart(now: LocalDateTime): LocalDateTime = planDate(now).atStartOfDay().plus(shift)
+    fun dayStart(now: LocalDateTime): LocalDateTime = startOf(planDate(now))
 
     fun remaining(now: LocalDateTime): Duration = Duration.between(now, dayEnd(now))
 }

@@ -20,7 +20,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 
 /**
- * Two reminders, both inexact (no special permission needed):
+ * Two reminders, both inexact (no special permission needed) and delivered while idle:
  * a daily one at the chosen time, and a late one an hour before the day ends.
  * Neither shows once today is finished.
  */
@@ -62,7 +62,9 @@ object Reminders {
 
     private fun set(am: AlarmManager, at: LocalDateTime, pi: PendingIntent) {
         val millis = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        am.setWindow(AlarmManager.RTC_WAKEUP, millis, 10 * 60 * 1000L, pi)
+        // Inexact, so no special permission, but still delivered while the phone is idle (Doze);
+        // a plain window alarm can wait until after the day has ended.
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, millis, pi)
     }
 
     private fun pending(context: Context, action: String): PendingIntent =
