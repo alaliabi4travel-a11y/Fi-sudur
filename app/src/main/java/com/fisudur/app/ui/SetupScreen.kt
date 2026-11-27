@@ -48,6 +48,7 @@ import java.time.LocalTime
 private data class PlanChoice(val amount: Int, val title: String, val reps: Int)
 
 private val choices = listOf(
+    PlanChoice(0, "حفظ نصف وجه", 40),
     PlanChoice(1, "حفظ وجه", 40),
     PlanChoice(2, "حفظ وجهين", 40),
     PlanChoice(3, "حفظ ثلاثة أوجه", 30),
@@ -156,7 +157,7 @@ private fun PlanCard(c: PlanChoice, days: Int, selected: Boolean, onClick: () ->
             Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(if (selected) MaterialTheme.colorScheme.primary else pal.goldSoft),
             contentAlignment = Alignment.Center,
         ) {
-            Text(c.amount.ar(), style = MaterialTheme.typography.headlineMedium, color = if (selected) pal.gold else pal.ink)
+            Text(if (c.amount == 0) "½" else c.amount.ar(), style = MaterialTheme.typography.headlineMedium, color = if (selected) pal.gold else pal.ink)
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {

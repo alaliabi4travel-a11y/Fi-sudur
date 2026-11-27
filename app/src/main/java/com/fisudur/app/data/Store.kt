@@ -114,6 +114,7 @@ class Store(context: Context) {
                 kind = DayKind.valueOf(o.getString("k")),
                 pages = if (o.has("f")) PageRange(o.getInt("f"), o.getInt("t")) else null,
                 reason = o.optString("r", "").takeIf { it.isNotEmpty() },
+                half = o.optInt("h", 0),
             )
         }.sortedBy { it.date }
     }
@@ -124,6 +125,7 @@ class Store(context: Context) {
             val o = JSONObject().put("d", e.date.toString()).put("k", e.kind.name)
             e.pages?.let { o.put("f", it.from).put("t", it.to) }
             e.reason?.let { o.put("r", it) }
+            if (e.half != 0) o.put("h", e.half)
             a.put(o)
         }
         // Written at once: the day-end alarm saves from the background, where the process may stop right after.

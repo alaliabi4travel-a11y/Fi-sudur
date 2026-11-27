@@ -92,9 +92,10 @@ fun SettingsScreen(s: UiState, a: Actions) {
 
         Section(Icons.Outlined.MenuBook, "مقدار الحفظ اليومي", "غيّره متى شئت، ويُعاد حساب الربط والمراجعة تلقائيًا.") {
             Segmented(
-                options = listOf("وجه", "وجهان", "ثلاثة أوجه"),
-                selected = (st.amount - 1).coerceIn(0, 2),
-                onSelect = { a.saveSettings(st.copy(amount = it + 1)) },
+                // Index 0 is half a page (amount 0), then one, two and three pages.
+                options = listOf("نصف وجه", "وجه", "وجهان", "ثلاثة"),
+                selected = st.amount.coerceIn(0, 3),
+                onSelect = { a.saveSettings(st.copy(amount = it)) },
                 modifier = Modifier.fillMaxWidth(),
             )
         }

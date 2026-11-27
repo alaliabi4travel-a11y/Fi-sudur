@@ -208,14 +208,22 @@ private fun TodayCard(s: UiState) {
                                 maxLines = 1,
                             )
                             Text(
-                                "${pagesText(newPages.count)}، تكرار ${p.repetitions.ar()} مرة",
+                                when (p.half) {
+                                    1 -> "النصف الأول (الأسطر ١–٨)، تكرار ${p.repetitions.ar()} مرة"
+                                    2 -> "النصف الثاني (الأسطر ٩–١٥)، تكرار ${p.repetitions.ar()} مرة"
+                                    else -> "${pagesText(newPages.count)}، تكرار ${p.repetitions.ar()} مرة"
+                                },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = pal.onHeroMuted,
                             )
                         }
                         else -> {
-                            Text("خُتم الحفظ", style = MaterialTheme.typography.headlineMedium, color = pal.onHero)
-                            Text("يستمر الربط والمراجعة", style = MaterialTheme.typography.bodySmall, color = pal.onHeroMuted)
+                            Text("خُتم الحفظ، الحمد لله", style = MaterialTheme.typography.headlineMedium, color = pal.onHero)
+                            Text(
+                                "طور التثبيت: ختمة مراجعة كل ${com.fisudur.app.engine.PlanRules.KHATM_DAYS.ar()} أيام",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = pal.onHeroMuted,
+                            )
                         }
                     }
                 }

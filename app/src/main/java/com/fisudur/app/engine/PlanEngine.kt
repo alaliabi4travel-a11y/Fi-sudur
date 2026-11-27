@@ -14,6 +14,8 @@ import java.time.LocalTime
  *  - Review (مراجعة): everything older than linking, even a single page. It runs on
  *    without stopping: each day takes up to [REVIEW_PAGES] pages from where it stopped,
  *    and on reaching the newest old page it carries on from the first one.
+ *  - After the khatm (consolidation): no new pages and no linking; the review covers the
+ *    whole memorization once every [KHATM_DAYS] days.
  */
 object PlanRules {
     const val LINK_PAGES = 20
@@ -25,6 +27,8 @@ object PlanRules {
     /** Readings a day for each weak page, and for how many recorded days. */
     const val WEAK_REPS = 3
     const val WEAK_DAYS = 3
+    /** After the khatm, the whole memorization is reviewed once every this many days. */
+    const val KHATM_DAYS = 6
 
     fun defaultRepetitions(amount: Int): Int = if (amount >= 3) 30 else 40
 }
@@ -45,6 +49,11 @@ data class DayEntry(
     val pages: PageRange?,
     /** Why an off day was taken outside the weekly off days: work, travel, sickness. */
     val reason: String? = null,
+    /**
+     * Half a page a day: 1 when this day memorized the first half of the next page (its pages
+     * stay null, as the page is not complete), 2 when it completed the page with its second half.
+     */
+    val half: Int = 0,
 )
 
 data class TodayPlan(
@@ -62,7 +71,14 @@ data class TodayPlan(
     /** True when today's review starts from the first page. */
     val roundStartsToday: Boolean,
     val memorizationDone: Boolean,
-)
+    /** Half a page a day: 1 = today is the first half of [newPages], 2 = its second half; 0 = whole pages. */
+    val half: Int = 0,
+    /** When yesterday was a first half, yesterday's repetition is that half: 1. */
+    val yesterdayHalf: Int = 0,
+) {
+    /** The pages today's entry records: none for a first half, the page is complete only with its second. */
+    val recordedPages: PageRange? get() = if (half == 1) null else newPages
+}
 
 /**
  * Computes today's plan from the history of completed days.
@@ -70,6 +86,9 @@ data class TodayPlan(
  * Off days (Friday, sickness, travel) do not memorize new pages and do not move the
  * plan day forward, but they still get linking and the next review part.
  */
+/** The daily amount that stands for half a page. */
+const val HALF = 0
+
 class PlanEngine(
     private val startPage: Int = 1,
     private val totalPages: Int = QuranData.TOTAL_PAGES,
@@ -91,6 +110,10 @@ class PlanEngine(
         } else {
             // Off day: repeat yesterday only when yesterday itself was a memorizing day.
             last?.takeIf { it.kind == DayKind.MEMO && (date == null || it.date == date.minusDays(1)) }?.pages
+        }
+        if (memorized >= totalPages) {
+            // After the khatm there is no linking: every old page is in the review, a khatm every few days.
+            return Layers(yesterday, null, if (yesterday != null) yesterday.from - 1 else memorized)
         }
         val linkEnd = if (yesterday != null) yesterday.from - 1 else memorized
         val linkFrom = maxOf(firstKnown, linkEnd - PlanRules.LINK_PAGES + 1)
@@ -114,8 +137,12 @@ class PlanEngine(
         val memorized = maxOf(startPage - 1, sorted.filter { it.kind == DayKind.MEMO }.maxOfOrNull { it.pages?.to ?: 0 } ?: 0)
         val memoDone = memorized >= totalPages
 
+        // Half a page a day (amount 0): the first half of the next page, then its second half.
+        val lastMemoEntry = sorted.lastOrNull { it.kind == DayKind.MEMO }
+        val afterFirstHalf = lastMemoEntry?.half == 1
+        val half = if (amount == HALF && todayKind == DayKind.MEMO && !memoDone) (if (afterFirstHalf) 2 else 1) else 0
         val newPages = if (todayKind == DayKind.MEMO && !memoDone) {
-            PageRange(memorized + 1, minOf(totalPages, memorized + amount))
+            PageRange(memorized + 1, minOf(totalPages, memorized + maxOf(1, amount)))
         } else null
 
         // Walk every recorded day, then today, keeping the review's place.
@@ -136,7 +163,13 @@ class PlanEngine(
             var second: PageRange? = null
             var fromStart = false
             if (l.oldTo >= firstKnown) {
-                val amount = minOf(PlanRules.REVIEW_PAGES, l.oldTo - firstKnown + 1)
+                val old = l.oldTo - firstKnown + 1
+                val amount = if (soFar >= totalPages) {
+                    // Consolidation: the whole memorization reviewed every KHATM_DAYS days.
+                    (old + PlanRules.KHATM_DAYS - 1) / PlanRules.KHATM_DAYS
+                } else {
+                    minOf(PlanRules.REVIEW_PAGES, old)
+                }
                 if (cursor > l.oldTo || cursor < firstKnown) cursor = firstKnown
                 fromStart = cursor == firstKnown
                 first = PageRange(cursor, minOf(l.oldTo, cursor + amount - 1))
@@ -163,19 +196,26 @@ class PlanEngine(
             }
         }
         val l = todayLayers!!
+        // After a first half, yesterday's repetition is that half of the page being memorized
+        // (on an off day only when the first half was memorized the day before).
+        val yesterdayHalfPage = if (afterFirstHalf && !memoDone && (todayKind == DayKind.MEMO || last === lastMemoEntry)) {
+            PageRange(memorized + 1, memorized + 1)
+        } else null
 
         return TodayPlan(
             planDay = memoDays + 1,
             kind = todayKind,
             newPages = newPages,
             repetitions = repetitions,
-            yesterday = l.yesterday,
+            yesterday = yesterdayHalfPage ?: l.yesterday,
             linking = l.linking,
             review = review,
             reviewWrap = reviewWrap,
             round = wraps,
             roundStartsToday = startsToday,
             memorizationDone = memoDone,
+            half = half,
+            yesterdayHalf = if (yesterdayHalfPage != null) 1 else 0,
         )
     }
 
@@ -189,14 +229,16 @@ class PlanEngine(
         from: LocalDate,
         offWeekdays: Set<DayOfWeek>,
     ): LocalDate? {
-        if (amount <= 0) return null
-        var remaining = totalPages - memorized
+        if (amount < 0) return null
+        // Counted in half pages, so half a page a day (amount 0) works like the rest.
+        val step = if (amount == HALF) 1 else amount * 2
+        var remaining = (totalPages - memorized) * 2
         if (remaining <= 0) return null
         var date = from
         var guard = 0
         while (true) {
             if (date.dayOfWeek !in offWeekdays) {
-                remaining -= amount
+                remaining -= step
                 if (remaining <= 0) return date
             }
             date = date.plusDays(1)

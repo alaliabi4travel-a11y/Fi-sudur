@@ -233,6 +233,7 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
 }
 
 private fun amountLabel(n: Int) = when (n) {
+    0 -> "نصف وجه"
     1 -> "وجه"
     2 -> "وجهين"
     else -> "${n.ar()} أوجه"

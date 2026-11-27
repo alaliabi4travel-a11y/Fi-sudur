@@ -218,7 +218,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
     override fun finishDay() {
         val s = _state.value
         if (s.doneToday != null) return
-        history = (history + DayEntry(s.planDate, s.plan.kind, s.plan.newPages, s.progress.reason.takeIf { s.plan.kind == DayKind.OFF })).sortedBy { it.date }
+        history = (history + DayEntry(s.planDate, s.plan.kind, s.plan.recordedPages, s.progress.reason.takeIf { s.plan.kind == DayKind.OFF }, s.plan.half)).sortedBy { it.date }
         store.saveHistory(history)
         store.settleWeak(s.progress)
         weak = store.loadWeak()
@@ -273,8 +273,8 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         if (!date.isBefore(s.planDate) || history.any { it.date == date }) return
         val entry = if (kind == DayKind.MEMO && canBackfillMemo(s, date)) {
             val reps = settings.repetitions ?: PlanRules.defaultRepetitions(settings.amount)
-            val pages = PlanEngine(settings.startPage, firstKnown = settings.firstKnown).today(history, settings.amount, reps, DayKind.MEMO, date).newPages
-            DayEntry(date, DayKind.MEMO, pages)
+            val plan = PlanEngine(settings.startPage, firstKnown = settings.firstKnown).today(history, settings.amount, reps, DayKind.MEMO, date)
+            DayEntry(date, DayKind.MEMO, plan.recordedPages, half = plan.half)
         } else {
             DayEntry(date, DayKind.OFF, null, reason)
         }

@@ -55,6 +55,7 @@ class PlanEngineTest {
         var wrapsSeen = 0
         for (e in h) {
             val p = engine.today(hist, 2, 40, DayKind.MEMO, e.date)
+            if (p.memorizationDone) break // consolidation follows its own rule (see below)
             val r = p.review
             if (r != null) {
                 val oldTo = p.linking!!.from - 1
@@ -213,5 +214,55 @@ class PlanEngineTest {
         assertEquals(3.5, st.pagesPerWeek!!, 0.01)
         // 589 pages left at half a page a day.
         assertEquals(today.plusDays(1178), st.paceFinish)
+    }
+
+    @Test fun afterTheKhatmTheWholeMushafIsReviewedEverySixDays() {
+        val h = memo(302, 2) // pages 1..604
+        assertEquals(604, h.last().pages!!.to)
+        val dayAfter = engine.today(h, 2, 40, DayKind.MEMO, start.plusDays(302))
+        assertTrue(dayAfter.memorizationDone)
+        assertNull(dayAfter.newPages)
+        assertNull(dayAfter.linking)
+        assertEquals(PageRange(603, 604), dayAfter.yesterday)
+        // Days after: no yesterday, and 604 pages in 6 days = 101 a day.
+        val hist = h.toMutableList()
+        var d = start.plusDays(302)
+        repeat(3) {
+            hist += DayEntry(d, DayKind.MEMO, null)
+            d = d.plusDays(1)
+        }
+        val later = engine.today(hist, 2, 40, DayKind.MEMO, d)
+        assertNull(later.yesterday)
+        assertNull(later.linking)
+        assertEquals(101, later.review!!.count + (later.reviewWrap?.count ?: 0))
+    }
+
+    @Test fun halfAPageADayTakesTwoDaysPerPage() {
+        val h = mutableListOf<DayEntry>()
+        var d = start
+        val seen = mutableListOf<Pair<Int, Int>>()
+        repeat(6) {
+            val p = engine.today(h, HALF, 40, DayKind.MEMO, d)
+            seen += p.newPages!!.from to p.half
+            h += DayEntry(d, DayKind.MEMO, p.recordedPages, half = p.half)
+            d = d.plusDays(1)
+        }
+        assertEquals(listOf(1 to 1, 1 to 2, 2 to 1, 2 to 2, 3 to 1, 3 to 2), seen)
+        // Second half: yesterday is the first half of the same page.
+        val second = engine.today(h.take(3), HALF, 40, DayKind.MEMO, start.plusDays(3))
+        assertEquals(2, second.half)
+        assertEquals(PageRange(2, 2), second.yesterday)
+        assertEquals(1, second.yesterdayHalf)
+        // First half of the next page: yesterday is the whole page just completed.
+        val first = engine.today(h.take(4), HALF, 40, DayKind.MEMO, start.plusDays(4))
+        assertEquals(PageRange(2, 2), first.yesterday)
+        assertEquals(0, first.yesterdayHalf)
+        assertEquals(PageRange(1, 1), first.linking)
+    }
+
+    @Test fun projectedFinishAtHalfAPage() {
+        val from = LocalDate.of(2026, 11, 9)
+        // 4 pages left = 8 half days, every day.
+        assertEquals(from.plusDays(7), engine.projectedFinish(600, HALF, from, emptySet()))
     }
 }

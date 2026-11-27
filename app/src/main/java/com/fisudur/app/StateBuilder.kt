@@ -156,7 +156,7 @@ fun autoFinishEntry(
     val chosenOff = stored.kindOverride == DayKind.OFF && stored.reason != null
     val complete = old.steps.isNotEmpty() && old.allChecked
     if (!chosenOff && !complete) return null
-    return DayEntry(old.planDate, old.plan.kind, old.plan.newPages, stored.reason.takeIf { old.plan.kind == DayKind.OFF })
+    return DayEntry(old.planDate, old.plan.kind, old.plan.recordedPages, stored.reason.takeIf { old.plan.kind == DayKind.OFF }, old.plan.half)
 }
 
 /**
@@ -181,6 +181,13 @@ fun carryProgress(
 
 private fun PageRange.pages(): List<Int> = (from..to).toList()
 
+/** Which half of a page, when memorizing half a page a day: the mushaf page has 15 lines. */
+fun halfLabel(half: Int): String = when (half) {
+    1 -> "، الأسطر ١–٨"
+    2 -> "، الأسطر ٩–١٥"
+    else -> ""
+}
+
 private fun stepsFor(plan: TodayPlan, weak: Map<Int, Int>): List<Step> {
     // Order as practised: linking, yesterday, then the new pages (tafsir, listening,
     // memorizing, recording to confirm, repetition to consolidate), and review last when there is one.
@@ -189,7 +196,7 @@ private fun stepsFor(plan: TodayPlan, weak: Map<Int, Int>): List<Step> {
         list += Step("link", StepKind.LINK, "الربط", it.label, it.surahs, "مرة واحدة غيبًا، ${com.fisudur.app.ui.pagesText(it.count)}", pageList = it.pages())
     }
     plan.yesterday?.let {
-        list += Step("yesterday", StepKind.YESTERDAY, "تكرار الأمس", it.label, it.surahs, "${PlanRules.YESTERDAY_REPS} مرات غيبًا", StepAction.TALLY, PlanRules.YESTERDAY_REPS, it.pages())
+        list += Step("yesterday", StepKind.YESTERDAY, "تكرار الأمس", it.label + halfLabel(plan.yesterdayHalf), it.surahs, "${PlanRules.YESTERDAY_REPS} مرات غيبًا", StepAction.TALLY, PlanRules.YESTERDAY_REPS, it.pages())
     }
     if (weak.isNotEmpty()) {
         // Pages that slipped in linking or review get extra readings for a few days, before the new pages.
@@ -204,11 +211,12 @@ private fun stepsFor(plan: TodayPlan, weak: Map<Int, Int>): List<Step> {
         )
     }
     plan.newPages?.let {
-        list += Step("tafsir", StepKind.TAFSIR, "اقرأ التفسير", it.label, it.surahs, "مرة واحدة، الميسّر أو المختصر")
-        list += Step("listen", StepKind.LISTEN, "استمع إلى القارئ", it.label, it.surahs, "${PlanRules.LISTEN_REPS} مرات مع النظر في المصحف", StepAction.TALLY, PlanRules.LISTEN_REPS)
-        list += Step("memorize", StepKind.MEMORIZE, "احفظ الورد", it.label, it.surahs, "حتى تقرأه غيبًا")
-        list += Step("record", StepKind.RECORD, "سجّل غيبًا لتأكيد الحفظ", it.label, it.surahs, "${PlanRules.RECORD_REPS} مرات متتالية بلا خطأ", StepAction.TALLY, PlanRules.RECORD_REPS)
-        list += Step("repeat", StepKind.REPEAT, "كرّر لتثبيت الحفظ", it.label, it.surahs, "${plan.repetitions} مرة", StepAction.COUNTER, plan.repetitions)
+        val label = it.label + halfLabel(plan.half)
+        list += Step("tafsir", StepKind.TAFSIR, "اقرأ التفسير", label, it.surahs, "مرة واحدة، الميسّر أو المختصر")
+        list += Step("listen", StepKind.LISTEN, "استمع إلى القارئ", label, it.surahs, "${PlanRules.LISTEN_REPS} مرات مع النظر في المصحف", StepAction.TALLY, PlanRules.LISTEN_REPS)
+        list += Step("memorize", StepKind.MEMORIZE, "احفظ الورد", label, it.surahs, "حتى تقرأه غيبًا")
+        list += Step("record", StepKind.RECORD, "سجّل غيبًا لتأكيد الحفظ", label, it.surahs, "${PlanRules.RECORD_REPS} مرات متتالية بلا خطأ", StepAction.TALLY, PlanRules.RECORD_REPS)
+        list += Step("repeat", StepKind.REPEAT, "كرّر لتثبيت الحفظ", label, it.surahs, "${plan.repetitions} مرة", StepAction.COUNTER, plan.repetitions)
     }
     plan.review?.let {
         // Reaching the newest old page, the review carries on from the first one.
