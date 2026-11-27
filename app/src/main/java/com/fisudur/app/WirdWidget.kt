@@ -30,7 +30,7 @@ class WirdWidget : AppWidgetProvider() {
 
         private fun views(context: Context): RemoteViews {
             val store = Store(context)
-            val s = buildUiState(LocalDateTime.now(), store.loadSettings(), store.loadHistory(), store.loadProgress())
+            val s = buildUiState(LocalDateTime.now(), store.loadSettings(), store.loadHistory(), store.loadProgress(), store.loadWeak())
             val v = RemoteViews(context.packageName, R.layout.widget_wird)
             val pages = s.plan.newPages
             when {

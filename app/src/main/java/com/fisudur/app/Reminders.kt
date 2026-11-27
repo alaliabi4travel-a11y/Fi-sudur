@@ -20,7 +20,7 @@ import java.time.LocalTime
 import java.time.ZoneId
 
 /**
- * Two reminders, both inexact (no special permission needed):
+ * Two reminders, both inexact (no special permission needed) and delivered while idle:
  * a daily one at the chosen time, and a late one an hour before the day ends.
  * Neither shows once today is finished.
  */
@@ -62,7 +62,9 @@ object Reminders {
 
     private fun set(am: AlarmManager, at: LocalDateTime, pi: PendingIntent) {
         val millis = at.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        am.setWindow(AlarmManager.RTC_WAKEUP, millis, 10 * 60 * 1000L, pi)
+        // Inexact, so no special permission, but still delivered while the phone is idle (Doze);
+        // a plain window alarm can wait until after the day has ended.
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, millis, pi)
     }
 
     private fun pending(context: Context, action: String): PendingIntent =
@@ -79,12 +81,16 @@ object Reminders {
         val settings = store.loadSettings()
         val history = store.loadHistory()
         val today = com.fisudur.app.engine.DayClock(settings.dayEnd).planDate(LocalDateTime.now())
-        autoFinishEntry(settings, history, store.loadProgress(), today)?.let { store.saveHistory(history + it) }
+        val day = store.loadProgress()
+        autoFinishEntry(settings, history, day, today, store.loadWeak())?.let {
+            store.saveHistory(history + it)
+            store.settleWeak(day)
+        }
     }
 
     fun show(context: Context, late: Boolean) {
         val store = Store(context)
-        val s = buildUiState(LocalDateTime.now(), store.loadSettings(), store.loadHistory(), store.loadProgress())
+        val s = buildUiState(LocalDateTime.now(), store.loadSettings(), store.loadHistory(), store.loadProgress(), store.loadWeak())
         if (s.needsSetup || s.doneToday != null) return
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED

@@ -17,6 +17,14 @@ android {
         targetSdk = 35
         versionCode = buildNumber
         versionName = "1.0.$buildNumber"
+        // The Google Play build (-Pplay) has no self-updater: Play updates the app,
+        // and Play does not allow installing packages from inside an app.
+        buildConfigField("boolean", "SELF_UPDATE", if (project.hasProperty("play")) "false" else "true")
+    }
+
+    if (project.hasProperty("play")) {
+        // Removes REQUEST_INSTALL_PACKAGES from the release manifest.
+        sourceSets.getByName("release").manifest.srcFile("src/play/AndroidManifest.xml")
     }
 
     signingConfigs {

@@ -39,11 +39,13 @@ import com.fisudur.app.UiState
 import com.fisudur.app.engine.DayKind
 import java.time.LocalDate
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun StatsScreen(s: UiState, a: Actions = NoActions) {
     val st = s.stats
     val pal = LocalPalette.current
     var picked by remember { mutableStateOf<LocalDate?>(null) }
+    var editing by remember { mutableStateOf<LocalDate?>(null) }
     Column(
         Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -60,7 +62,8 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
                     Text("من ٦٠٤ في المصحف", style = MaterialTheme.typography.bodyLarge, color = pal.onHeroMuted)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "الجزء ${st.currentJuz.ar()}، بقي ${pagesText(st.pagesRemaining)}",
+                        "الجزء ${st.currentJuz.ar()}، بقي ${pagesText(st.pagesRemaining)}" +
+                            (if (s.plan.review != null) "\nجولة المراجعة ${(if (s.plan.reviewWrap != null) s.plan.round else s.plan.round + 1).ar()}" else ""),
                         style = MaterialTheme.typography.bodySmall,
                         color = pal.onHeroMuted,
                     )
@@ -97,6 +100,15 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
                             color = pal.muted,
                         )
                     }
+                    val pf = st.paceFinish
+                    if (f != null && pf != null) {
+                        val perWeek = kotlin.math.round((st.pagesPerWeek ?: 0.0) * 10) / 10
+                        Text(
+                            "وبأدائك في آخر ٣٠ يومًا (${perWeek.toString().ar()} وجه أسبوعيًا): ${Fmt.date(pf).ar()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = pal.muted,
+                        )
+                    }
                 }
             }
         }
@@ -113,7 +125,7 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
             DayTile("تفريط", st.missedDays, pal.warn, Modifier.weight(1f))
         }
         val notes = listOfNotNull(
-            listOf("عمل", "سفر", "مرض").mapNotNull { r -> byReason[r]?.let { "$r ${daysText(it.toLong())}" } }
+            listOf("عمل", "سفر", "مرض", com.fisudur.app.POSTPONED).mapNotNull { r -> byReason[r]?.let { "$r ${daysText(it.toLong())}" } }
                 .joinToString("، ").ifEmpty { null }?.let { "أسباب العذر: $it" },
             if (st.missedThisMonth > 0) "التفريط هذا الشهر: ${daysText(st.missedThisMonth.toLong())}" else null,
         )
@@ -132,20 +144,67 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("أطول استمرار", style = MaterialTheme.typography.labelMedium, color = pal.muted)
-                    Text(st.longestStreak.ar(), style = MaterialTheme.typography.titleLarge, color = pal.gold)
+                    Text(daysText(st.longestStreak.toLong()), style = MaterialTheme.typography.titleLarge, color = pal.gold)
                 }
             }
         }
 
-        SectionTitle("آخر ٢٨ يومًا")
+        if (s.weak.isNotEmpty()) {
+            SectionTitle("الأوجه الضعيفة")
+            Panel(Modifier.fillMaxWidth()) {
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    s.weak.toSortedMap().forEach { (p, left) ->
+                        Pill("${p.ar()}، ${daysText(left.toLong())}", true) { a.toggleWeak(p) }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "بجانب كل وجه ما بقي له من أيام القراءة الإضافية. اضغط وجهًا لتعدّه ثابتًا.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = pal.muted,
+                )
+            }
+        }
+
+        SectionTitle("آخر أربعة أسابيع")
         Panel(Modifier.fillMaxWidth()) {
-            LastDays(s) { picked = it }
+            LastDays(s, canEdit = { a.canEditDay(s, it) }, onMissed = { picked = it }, onRecorded = { editing = it })
             Spacer(Modifier.height(14.dp))
             Legend()
             Spacer(Modifier.height(8.dp))
-            Text("اضغط يوم التفريط لتسجيله إن كنت حفظت فيه أو كان لك عذر.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
+            Text("اضغط يوم التفريط لتسجيله إن كنت حفظت فيه أو كان لك عذر، أو يومًا مسجّلًا لتصحيحه.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
         }
         Spacer(Modifier.height(4.dp))
+    }
+
+    editing?.let { d ->
+        val e = s.history.firstOrNull { it.date == d }
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text(Fmt.date(d).ar()) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        when {
+                            e?.kind == DayKind.MEMO -> "سُجّل يوم حفظ${e.pages?.let { "، الوجه ${it.label.ar()}" } ?: ""}. إن لم تحفظ فيه فاجعله عذرًا أو احذف تسجيله، فتعود أوجهه إلى ورد اليوم."
+                            e?.reason != null -> "سُجّل يوم عذر: ${e.reason}. غيّر السبب أو احذف التسجيل."
+                            else -> "سُجّل يوم إجازة. اجعله عذرًا أو احذف التسجيل."
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("عمل", "سفر", "مرض").forEach { r ->
+                            Pill(r, e?.reason == r) { a.editDay(d, DayKind.OFF, r); editing = null }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { a.editDay(d, null); editing = null }) { Text("حذف التسجيل", color = pal.warn) } },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text("إلغاء") } },
+        )
     }
 
     picked?.let { d ->
@@ -174,25 +233,41 @@ fun StatsScreen(s: UiState, a: Actions = NoActions) {
 }
 
 private fun amountLabel(n: Int) = when (n) {
+    0 -> "نصف وجه"
     1 -> "وجه"
     2 -> "وجهين"
     else -> "${n.ar()} أوجه"
 }
 
 @Composable
-private fun LastDays(s: UiState, onMissed: (LocalDate) -> Unit) {
+private fun LastDays(s: UiState, canEdit: (LocalDate) -> Boolean, onMissed: (LocalDate) -> Unit, onRecorded: (LocalDate) -> Unit) {
     val byDate = s.history.associateBy { it.date }
     val start = s.settings.startDate ?: s.planDate
-    val days = (27 downTo 0).map { s.planDate.minusDays(it.toLong()) }
+    // Four whole weeks, Saturday to Friday, the last one holding today: each column is one weekday.
+    val sinceSaturday = (s.planDate.dayOfWeek.value - java.time.DayOfWeek.SATURDAY.value + 7) % 7
+    val first = s.planDate.minusDays(sinceSaturday.toLong() + 21)
+    val days = (0 until 28).map { first.plusDays(it.toLong()) }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Fmt.weekInitials.forEach { n ->
+                Text(
+                    n,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = LocalPalette.current.muted,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
         days.chunked(7).forEach { week ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 week.forEach { d ->
                     val (bg, fg) = dayColors(d, byDate[d], start, s.planDate)
                     val missed = byDate[d] == null && !d.isBefore(start) && d.isBefore(s.planDate)
+                    val editable = byDate[d] != null && canEdit(d)
                     Box(
                         Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(10.dp)).background(bg)
-                            .clickable(enabled = missed) { onMissed(d) },
+                            .clickable(enabled = missed || editable) { if (missed) onMissed(d) else onRecorded(d) },
                         contentAlignment = Alignment.Center,
                     ) { Text(d.dayOfMonth.ar(), style = MaterialTheme.typography.labelMedium, color = fg) }
                 }

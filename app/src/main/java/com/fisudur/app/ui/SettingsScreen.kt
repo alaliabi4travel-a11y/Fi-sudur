@@ -4,6 +4,10 @@ import android.app.TimePickerDialog
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.outlined.Backup
+import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.outlined.NotificationsActive
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -66,9 +70,18 @@ fun SettingsScreen(s: UiState, a: Actions) {
     val exportFile = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         uri?.let(a::exportTo)
     }
+    var pendingImport by remember { mutableStateOf<Pair<android.net.Uri, String>?>(null) }
+    var choosingBackup by remember { mutableStateOf(false) }
     val importFile = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let(a::importFrom)
+        if (uri != null) {
+            val about = a.preview(uri)
+            if (about != null) pendingImport = uri to about else a.importFrom(uri) // not ours: the import says so
+        }
     }
+    val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        uri?.let(a::chooseBackupFolder)
+    }
+    var crash by remember { mutableStateOf(com.fisudur.app.CrashLog.read(context)) }
 
     Column(
         Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 6.dp),
@@ -79,9 +92,10 @@ fun SettingsScreen(s: UiState, a: Actions) {
 
         Section(Icons.Outlined.MenuBook, "مقدار الحفظ اليومي", "غيّره متى شئت، ويُعاد حساب الربط والمراجعة تلقائيًا.") {
             Segmented(
-                options = listOf("وجه", "وجهان", "ثلاثة أوجه"),
-                selected = (st.amount - 1).coerceIn(0, 2),
-                onSelect = { a.saveSettings(st.copy(amount = it + 1)) },
+                // Index 0 is half a page (amount 0), then one, two and three pages.
+                options = listOf("نصف وجه", "وجه", "وجهان", "ثلاثة"),
+                selected = st.amount.coerceIn(0, 3),
+                onSelect = { a.saveSettings(st.copy(amount = it)) },
                 modifier = Modifier.fillMaxWidth(),
             )
         }
@@ -127,6 +141,27 @@ fun SettingsScreen(s: UiState, a: Actions) {
                 }) { Text("حفظ") }
             }
             Text("غيّره فقط إن كنت تحفظ من موضع غير أول المصحف.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
+            if (st.startPage > 1) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("أحفظ ما قبله", style = MaterialTheme.typography.bodyLarge, color = pal.ink)
+                        Text(
+                            "الأوجه من ١ إلى ${(st.startPage - 1).ar()} محفوظة عندي، فتدخل الربط والمراجعة.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = pal.muted,
+                        )
+                    }
+                    Switch(checked = st.memorizedBefore, onCheckedChange = { a.saveSettings(st.copy(memorizedBefore = it)) })
+                }
+            }
+        }
+
+        Section(Icons.Outlined.Headphones, "القارئ", "تسمعه في خطوة الاستماع، والصوت من quran.com ويحتاج الإنترنت.") {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.fisudur.app.QuranApi.reciters.forEach { (id, name) ->
+                    Pill(name, st.reciter == id) { a.saveSettings(st.copy(reciter = id)) }
+                }
+            }
         }
 
         Section(Icons.Outlined.Bedtime, "نهاية اليوم", "يبدأ يومك الجديد عند هذا الوقت. ما تنجزه قبله يُحسب لليوم السابق.") {
@@ -184,14 +219,31 @@ fun SettingsScreen(s: UiState, a: Actions) {
             "النسخ الاحتياطي",
             "يحفظ التطبيق نسخة كل يوم داخل الهاتف${s.lastAutoBackup?.let { "، آخرها ${it.ar()}" } ?: ""}. واحفظ ملفًا خارجه (Google Drive أو رسالة) لتنقل سجلك إلى هاتف آخر.",
         ) {
+            if (st.backupFolder != null) {
+                Text(
+                    "نسخة يومية في المجلد الذي اخترته${s.lastFolderCopy?.let { "، آخرها ${it.ar()}" } ?: ""}.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = pal.ink,
+                )
+                OutlineAction("إيقاف النسخ إلى المجلد") { a.chooseBackupFolder(null) }
+            } else {
+                OutlineAction("نسخة يومية في مجلد تختاره") { pickFolder.launch(null) }
+            }
             OutlineAction("حفظ نسخة في ملف") { exportFile.launch("fi-sudur-${java.time.LocalDate.now()}.json") }
             OutlineAction("استعادة من ملف") { importFile.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
             if (s.lastAutoBackup != null) {
-                OutlineAction("استعادة آخر نسخة تلقائية") { a.restoreAutoBackup() }
+                OutlineAction("استعادة نسخة تلقائية") { choosingBackup = true }
             }
+            Text(
+                "اختر مجلدًا في Google Drive أو غيره ليبقى سجلك إن ضاع الهاتف.",
+                style = MaterialTheme.typography.bodySmall,
+                color = pal.muted,
+            )
         }
 
-        Section(Icons.Outlined.SystemUpdate, "التحديثات", "الإصدار ${BuildConfig.VERSION_NAME.ar()}") {
+        if (!BuildConfig.SELF_UPDATE) {
+            Section(Icons.Outlined.SystemUpdate, "الإصدار", "${BuildConfig.VERSION_NAME.ar()}، التحديث من متجر Google Play") {}
+        } else Section(Icons.Outlined.SystemUpdate, "التحديثات", "الإصدار ${BuildConfig.VERSION_NAME.ar()}") {
             when (val u = s.update) {
                 is UpdateState.Available, is UpdateState.Downloading, is UpdateState.Ready -> UpdateBanner(u, a)
                 else -> {
@@ -207,8 +259,55 @@ fun SettingsScreen(s: UiState, a: Actions) {
             }
         }
 
+        crash?.let { report ->
+            Section(Icons.Outlined.BugReport, "حدث عطل في التطبيق", "أرسل التفاصيل ليُصلَح، ولا تحوي شيئًا من سجلك.") {
+                OutlineAction("إرسال تقرير العطل") {
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+                        .setType("text/plain")
+                        .putExtra(android.content.Intent.EXTRA_SUBJECT, "عطل في في صدور ${BuildConfig.VERSION_NAME}")
+                        .putExtra(android.content.Intent.EXTRA_TEXT, report)
+                    context.startActivity(android.content.Intent.createChooser(send, "إرسال التقرير"))
+                }
+                OutlineAction("تجاهل") { com.fisudur.app.CrashLog.clear(context); crash = null }
+            }
+        }
+
         OutlineAction("بدء خطة جديدة (حذف السجل)", danger = true) { confirmReset = true }
         Spacer(Modifier.height(4.dp))
+    }
+
+    pendingImport?.let { (uri, about) ->
+        AlertDialog(
+            onDismissRequest = { pendingImport = null },
+            title = { Text("استعادة هذه النسخة؟") },
+            text = { Text("$about\n\nتحل محل سجلك الحالي، وتُحفظ نسخة منه أولًا.") },
+            confirmButton = { TextButton(onClick = { a.importFrom(uri); pendingImport = null }) { Text("استعادة") } },
+            dismissButton = { TextButton(onClick = { pendingImport = null }) { Text("إلغاء") } },
+        )
+    }
+
+    if (choosingBackup) {
+        val list = remember { a.backups() }
+        AlertDialog(
+            onDismissRequest = { choosingBackup = false },
+            title = { Text("اختر نسخة") },
+            text = {
+                Column(Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
+                    Text("تحل النسخة محل سجلك الحالي، وتُحفظ نسخة منه أولًا.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
+                    list.forEach { (name, about) ->
+                        Text(
+                            about,
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = pal.ink,
+                            modifier = Modifier.fillMaxWidth().clickable { a.restoreAutoBackup(name); choosingBackup = false }.padding(vertical = 12.dp),
+                        )
+                        HorizontalDivider(color = pal.line)
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { choosingBackup = false }) { Text("إلغاء") } },
+        )
     }
 
     pendingStart?.let { p ->

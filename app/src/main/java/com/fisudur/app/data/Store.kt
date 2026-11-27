@@ -23,7 +23,16 @@ data class Settings(
     val reminderMinutes: Int? = 20 * 60,
     /** A second reminder an hour before the day ends, only if the day is not finished. */
     val lateReminder: Boolean = true,
+    /** The pages before [startPage] were memorized earlier: they join linking and review from day one. */
+    val memorizedBefore: Boolean = false,
+    /** A folder (a document tree the person picked) where a copy is written every day; null = none. */
+    val backupFolder: String? = null,
+    /** The reciter heard in the listening step (a quran.com recitation id). */
+    val reciter: Int = 7,
 ) {
+    /** The first page held: 1 when the pages before the start were memorized earlier. */
+    val firstKnown: Int get() = if (memorizedBefore) 1 else startPage
+
     val dayEnd: LocalTime get() = LocalTime.of(dayEndMinutes / 60, dayEndMinutes % 60)
 }
 
@@ -44,6 +53,22 @@ data class DayProgress(
 class Store(context: Context) {
     private val prefs = context.getSharedPreferences("fisudur", Context.MODE_PRIVATE)
 
+    init { migrateLateDayEnd() }
+
+    /**
+     * A day ending after noon used to be named after the date it starts on; it is now named
+     * after the date it ends on (see DayClock). Once, the day in progress moves to its new name.
+     * Here, so it runs before anything reads the store: the app, the widget or the day-end alarm.
+     */
+    private fun migrateLateDayEnd() {
+        if (flag("lateDayNamed")) return
+        if (loadSettings().dayEndMinutes > 12 * 60) {
+            loadProgress()?.let { saveProgress(it.copy(date = it.date.plusDays(1))) }
+            loadNextProgress()?.let { saveNextProgress(it.copy(date = it.date.plusDays(1))) }
+        }
+        setFlag("lateDayNamed")
+    }
+
     fun loadSettings(): Settings {
         val s = prefs.getString("settings", null) ?: return Settings()
         val o = JSONObject(s)
@@ -57,6 +82,9 @@ class Store(context: Context) {
             startPage = o.optInt("startPage", 1),
             reminderMinutes = if (!o.has("remind")) 20 * 60 else if (o.isNull("remind")) null else o.getInt("remind"),
             lateReminder = o.optBoolean("late", true),
+            memorizedBefore = o.optBoolean("known", false),
+            backupFolder = o.optString("folder", "").takeIf { it.isNotEmpty() },
+            reciter = o.optInt("reciter", 7),
         )
     }
 
@@ -70,7 +98,10 @@ class Store(context: Context) {
             .put("startPage", s.startPage)
             .put("remind", s.reminderMinutes ?: JSONObject.NULL)
             .put("late", s.lateReminder)
-        prefs.edit().putString("settings", o.toString()).apply()
+            .put("known", s.memorizedBefore)
+            .put("folder", s.backupFolder ?: "")
+            .put("reciter", s.reciter)
+        prefs.edit().putString("settings", o.toString()).commit()
     }
 
     fun loadHistory(): List<DayEntry> {
@@ -83,6 +114,7 @@ class Store(context: Context) {
                 kind = DayKind.valueOf(o.getString("k")),
                 pages = if (o.has("f")) PageRange(o.getInt("f"), o.getInt("t")) else null,
                 reason = o.optString("r", "").takeIf { it.isNotEmpty() },
+                half = o.optInt("h", 0),
             )
         }.sortedBy { it.date }
     }
@@ -93,9 +125,11 @@ class Store(context: Context) {
             val o = JSONObject().put("d", e.date.toString()).put("k", e.kind.name)
             e.pages?.let { o.put("f", it.from).put("t", it.to) }
             e.reason?.let { o.put("r", it) }
+            if (e.half != 0) o.put("h", e.half)
             a.put(o)
         }
-        prefs.edit().putString("history", a.toString()).apply()
+        // Written at once: the day-end alarm saves from the background, where the process may stop right after.
+        prefs.edit().putString("history", a.toString()).commit()
     }
 
     fun loadProgress(): DayProgress? = readProgress("progress")
@@ -134,8 +168,17 @@ class Store(context: Context) {
         prefs.edit().putString(key, o.toString()).commit()
     }
 
+    /** One-time markers, such as a migration that has run. Kept apart from the plan, so a restore never resets them. */
+    fun flag(name: String): Boolean = prefs.getBoolean("flag_$name", false)
+
+    fun setFlag(name: String) {
+        prefs.edit().putBoolean("flag_$name", true).commit()
+    }
+
     fun clearAll() {
-        prefs.edit().clear().apply()
+        val e = prefs.edit()
+        prefs.all.keys.filterNot { it.startsWith("flag_") }.forEach { e.remove(it) }
+        e.commit()
     }
 
     // ---- Backup ------------------------------------------------------------
@@ -148,7 +191,72 @@ class Store(context: Context) {
         .put("settings", prefs.getString("settings", null)?.let(::JSONObject) ?: JSONObject())
         .put("history", prefs.getString("history", null)?.let(::JSONArray) ?: JSONArray())
         .put("progress", prefs.getString("progress", null)?.let(::JSONObject) ?: JSONObject.NULL)
+        .put("weak", prefs.getString("weak", null)?.let(::JSONObject) ?: JSONObject())
         .toString(2)
+
+    /** What a backup holds, read without restoring it: shown before a restore. */
+    data class Summary(val exportedAt: String, val days: Int, val lastPage: Int?, val startDate: String?)
+
+    fun summarize(text: String): Summary {
+        val o = JSONObject(text)
+        require(o.optString("app") == "fi-sudur") { "not a backup" }
+        val h = o.getJSONArray("history")
+        var last: Int? = null
+        for (i in 0 until h.length()) {
+            val e = h.getJSONObject(i)
+            if (e.has("t")) last = maxOf(last ?: 0, e.getInt("t"))
+        }
+        return Summary(
+            exportedAt = o.optString("exportedAt", ""),
+            days = h.length(),
+            lastPage = last,
+            startDate = o.optJSONObject("settings")?.optString("start", "")?.takeIf { it.isNotEmpty() },
+        )
+    }
+
+    /** The day a copy last went to the chosen backup folder. */
+    fun lastFolderCopy(): String? = prefs.getString("folderCopy", null)
+
+    fun setLastFolderCopy(day: String) {
+        prefs.edit().putString("folderCopy", day).commit()
+    }
+
+    // ---- Weak pages ----------------------------------------------------------
+
+    /** Pages marked as shaky, each with the days of extra reading left before it counts as settled. */
+    fun loadWeak(): Map<Int, Int> {
+        val o = prefs.getString("weak", null)?.let(::JSONObject) ?: return emptyMap()
+        return o.keys().asSequence().associate { it.toInt() to o.getInt(it) }
+    }
+
+    fun saveWeak(w: Map<Int, Int>) {
+        val o = JSONObject()
+        w.toSortedMap().forEach { (p, n) -> o.put(p.toString(), n) }
+        prefs.edit().putString("weak", o.toString()).commit()
+    }
+
+    /**
+     * A day was recorded: if its weak-pages step was done, each weak page has one day less to go,
+     * and settles at zero. The pages as they were are kept, so "undo finish" can put them back.
+     */
+    fun settleWeak(day: DayProgress?) {
+        if (day == null || "weak" !in day.checked) return
+        // Once per day, though the alarm and the open app may both record it.
+        if (prefs.getString("weakBefore", null)?.let(::JSONObject)?.optString("d") == day.date.toString()) return
+        val before = loadWeak()
+        prefs.edit().putString("weakBefore", JSONObject().put("d", day.date.toString())
+            .put("w", JSONObject(before.mapKeys { it.key.toString() })).toString()).commit()
+        saveWeak(before.mapValues { it.value - 1 }.filterValues { it > 0 })
+    }
+
+    /** Undoes [settleWeak] for [date], if that day settled them. */
+    fun unsettleWeak(date: LocalDate) {
+        val o = prefs.getString("weakBefore", null)?.let(::JSONObject) ?: return
+        if (o.optString("d") != date.toString()) return
+        val w = o.getJSONObject("w")
+        saveWeak(w.keys().asSequence().associate { it.toInt() to w.getInt(it) })
+        prefs.edit().remove("weakBefore").commit()
+    }
 
     /** Restores an exported document. Throws if it is not one of ours; nothing changes in that case. */
     fun importJson(text: String) {
@@ -168,8 +276,11 @@ class Store(context: Context) {
                 val p = o.opt("progress")
                 if (p is JSONObject) putString("progress", p.toString()) else remove("progress")
             }
+            .remove("next")
+            .remove("weakBefore")
+            .apply { val w = o.optJSONObject("weak"); if (w != null) putString("weak", w.toString()) else remove("weak") }
             .putInt("schema", SCHEMA)
-            .apply()
+            .commit()
     }
 
     private val backupDir = java.io.File(context.filesDir, "backups").apply { mkdirs() }

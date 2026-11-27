@@ -60,7 +60,7 @@ class HapticActions(private val a: Actions, private val s: UiState, private val 
     override fun tallyNext(stepId: String) { s.tomorrow?.let { t -> stepTally(t, stepId) { a.tallyNext(stepId) } } }
 
     override fun setCounter(value: Int) {
-        val target = s.plan.repetitions
+        val target = if (s.plan.newPages != null) s.plan.repetitions else 0
         when {
             value < s.progress.counter -> h.undo()
             target > 0 && value == target -> h.success()
@@ -76,10 +76,18 @@ class HapticActions(private val a: Actions, private val s: UiState, private val 
         h.tick()
         a.saveSettings(new)
     }
-    override fun startPlan(amount: Int, startPage: Int, dayEndMinutes: Int) { h.success(); a.startPlan(amount, startPage, dayEndMinutes) }
+    override fun startPlan(amount: Int, startPage: Int, dayEndMinutes: Int, memorizedBefore: Boolean) { h.success(); a.startPlan(amount, startPage, dayEndMinutes, memorizedBefore) }
+    override fun recordResult(ok: Boolean) {
+        val n = (s.progress.tallies["record"] ?: 0) + 1
+        if (!ok) h.undo() else if (n == com.fisudur.app.engine.PlanRules.RECORD_REPS) h.success() else h.confirm()
+        a.recordResult(ok)
+    }
+    override fun postponeNew() { h.confirm(); a.postponeNew() }
+    override fun toggleWeak(page: Int) { h.tick(); a.toggleWeak(page) }
+    override fun editDay(date: LocalDate, kind: DayKind?, reason: String?) { if (kind == null) h.undo() else h.confirm(); a.editDay(date, kind, reason) }
     override fun resetAll() { h.undo(); a.resetAll() }
     override fun backfill(date: LocalDate, kind: DayKind, reason: String?) { h.confirm(); a.backfill(date, kind, reason) }
-    override fun restoreAutoBackup() { h.confirm(); a.restoreAutoBackup() }
+    override fun restoreAutoBackup(name: String?) { h.confirm(); a.restoreAutoBackup(name) }
 
     private fun willCompleteAll(st: UiState, stepId: String) =
         st.steps.all { it.id == stepId || it.id in st.progress.checked }
@@ -99,7 +107,7 @@ class HapticActions(private val a: Actions, private val s: UiState, private val 
         val step = st.steps.firstOrNull { it.id == stepId } ?: return go()
         val n = (st.progress.tallies[stepId] ?: 0) + 1
         when {
-            n > step.target -> h.undo()
+            n > step.target -> {}
             n == step.target -> h.success()
             else -> h.tick()
         }

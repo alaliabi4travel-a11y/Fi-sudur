@@ -55,6 +55,7 @@ class PlanEngineTest {
         var wrapsSeen = 0
         for (e in h) {
             val p = engine.today(hist, 2, 40, DayKind.MEMO, e.date)
+            if (p.memorizationDone) break // consolidation follows its own rule (see below)
             val r = p.review
             if (r != null) {
                 val oldTo = p.linking!!.from - 1
@@ -133,9 +134,135 @@ class PlanEngineTest {
         assertEquals(LocalDateTime.of(2026, 11, 10, 4, 0), clock.dayEnd(LocalDateTime.of(2026, 11, 9, 13, 0)))
     }
 
+    @Test fun dayClockWithMidnightEnd() {
+        val clock = DayClock(LocalTime.MIDNIGHT)
+        assertEquals(LocalDate.of(2026, 11, 9), clock.planDate(LocalDateTime.of(2026, 11, 9, 23, 59)))
+        assertEquals(LocalDateTime.of(2026, 11, 10, 0, 0), clock.dayEnd(LocalDateTime.of(2026, 11, 9, 13, 0)))
+        assertEquals(LocalDateTime.of(2026, 11, 9, 0, 0), clock.dayStart(LocalDateTime.of(2026, 11, 9, 13, 0)))
+    }
+
+    @Test fun lateDayEndIsNamedAfterTheDateItEndsOn() {
+        // Day ends at 22:00: "Friday" runs from Thursday 22:00 to Friday 22:00.
+        val clock = DayClock(LocalTime.of(22, 0))
+        val friday = LocalDate.of(2026, 11, 27)
+        assertEquals(DayOfWeek.FRIDAY, friday.dayOfWeek)
+        assertEquals(friday, clock.planDate(LocalDateTime.of(2026, 11, 26, 22, 0)))
+        assertEquals(friday, clock.planDate(LocalDateTime.of(2026, 11, 27, 21, 59)))
+        assertEquals(friday.plusDays(1), clock.planDate(LocalDateTime.of(2026, 11, 27, 22, 0)))
+        assertEquals(LocalDateTime.of(2026, 11, 26, 22, 0), clock.startOf(friday))
+        assertEquals(LocalDateTime.of(2026, 11, 27, 22, 0), clock.dayEnd(LocalDateTime.of(2026, 11, 27, 9, 0)))
+        assertEquals(clock.planDate(clock.startOf(friday)), friday)
+    }
+
+    @Test fun startOfIsTheMomentTheNamedDayBegins() {
+        for (end in listOf(LocalTime.MIDNIGHT, LocalTime.of(4, 0), LocalTime.of(12, 0), LocalTime.of(13, 30), LocalTime.of(23, 0))) {
+            val clock = DayClock(end)
+            val d = LocalDate.of(2026, 3, 1)
+            val start = clock.startOf(d)
+            assertEquals("$end", d, clock.planDate(start))
+            assertEquals("$end", d.minusDays(1), clock.planDate(start.minusMinutes(1)))
+            assertEquals("$end", start.plusDays(1), clock.dayEnd(start))
+        }
+    }
+
     @Test fun projectedFinishSkipsFridays() {
         val finish = engine.projectedFinish(100, 2, LocalDate.of(2026, 11, 9), setOf(DayOfWeek.FRIDAY))!!
         // 504 pages = 252 memorizing days = 42 weeks of 6 days.
         assertEquals(LocalDate.of(2026, 11, 9).plusDays(293), finish)
+    }
+
+    @Test fun pagesMemorizedBeforeTheStartJoinLinkingAndReview() {
+        // Starting at page 300 with pages 1..299 already held.
+        val e = PlanEngine(startPage = 300, firstKnown = 1)
+        val day1 = e.today(emptyList(), 1, 40, DayKind.MEMO, start)
+        assertEquals(PageRange(300, 300), day1.newPages)
+        assertEquals(PageRange(280, 299), day1.linking)
+        assertEquals(PageRange(1, 20), day1.review)
+        val h = listOf(DayEntry(start, DayKind.MEMO, PageRange(300, 300)))
+        val day2 = e.today(h, 1, 40, DayKind.MEMO, start.plusDays(1))
+        assertEquals(PageRange(300, 300), day2.yesterday)
+        assertEquals(PageRange(21, 40), day2.review)
+    }
+
+    @Test fun withoutEarlierPagesTheStartIsTheFirstPage() {
+        val e = PlanEngine(startPage = 300)
+        val day1 = e.today(emptyList(), 1, 40, DayKind.MEMO, start)
+        assertNull(day1.linking)
+        assertNull(day1.review)
+    }
+
+    @Test fun statsCountOnlyPagesHeld() {
+        val h = listOf(DayEntry(start, DayKind.MEMO, PageRange(300, 301)))
+        val fresh = StatsCalculator.compute(h, start, 300, start.plusDays(1), 2, emptySet())
+        assertEquals(2, fresh.pagesMemorized)
+        assertEquals(0, fresh.percent)
+        val known = StatsCalculator.compute(h, start, 300, start.plusDays(1), 2, emptySet(), firstKnown = 1)
+        assertEquals(301, known.pagesMemorized)
+        assertEquals(49, known.percent)
+    }
+
+    @Test fun paceFollowsTheLastThirtyDays() {
+        // One page every other day for 30 days: 15 pages, 3.5 a week.
+        val h = mutableListOf<DayEntry>()
+        var p = 1
+        for (i in 0 until 30) {
+            val d = start.plusDays(i.toLong())
+            h += if (i % 2 == 0) DayEntry(d, DayKind.MEMO, PageRange(p, p).also { p++ }) else DayEntry(d, DayKind.OFF, null, "عمل")
+        }
+        val today = start.plusDays(30)
+        val st = StatsCalculator.compute(h, start, 1, today, 1, emptySet())
+        assertEquals(3.5, st.pagesPerWeek!!, 0.01)
+        // 589 pages left at half a page a day.
+        assertEquals(today.plusDays(1178), st.paceFinish)
+    }
+
+    @Test fun afterTheKhatmTheWholeMushafIsReviewedEverySixDays() {
+        val h = memo(302, 2) // pages 1..604
+        assertEquals(604, h.last().pages!!.to)
+        val dayAfter = engine.today(h, 2, 40, DayKind.MEMO, start.plusDays(302))
+        assertTrue(dayAfter.memorizationDone)
+        assertNull(dayAfter.newPages)
+        assertNull(dayAfter.linking)
+        assertEquals(PageRange(603, 604), dayAfter.yesterday)
+        // Days after: no yesterday, and 604 pages in 6 days = 101 a day.
+        val hist = h.toMutableList()
+        var d = start.plusDays(302)
+        repeat(3) {
+            hist += DayEntry(d, DayKind.MEMO, null)
+            d = d.plusDays(1)
+        }
+        val later = engine.today(hist, 2, 40, DayKind.MEMO, d)
+        assertNull(later.yesterday)
+        assertNull(later.linking)
+        assertEquals(101, later.review!!.count + (later.reviewWrap?.count ?: 0))
+    }
+
+    @Test fun halfAPageADayTakesTwoDaysPerPage() {
+        val h = mutableListOf<DayEntry>()
+        var d = start
+        val seen = mutableListOf<Pair<Int, Int>>()
+        repeat(6) {
+            val p = engine.today(h, HALF, 40, DayKind.MEMO, d)
+            seen += p.newPages!!.from to p.half
+            h += DayEntry(d, DayKind.MEMO, p.recordedPages, half = p.half)
+            d = d.plusDays(1)
+        }
+        assertEquals(listOf(1 to 1, 1 to 2, 2 to 1, 2 to 2, 3 to 1, 3 to 2), seen)
+        // Second half: yesterday is the first half of the same page.
+        val second = engine.today(h.take(3), HALF, 40, DayKind.MEMO, start.plusDays(3))
+        assertEquals(2, second.half)
+        assertEquals(PageRange(2, 2), second.yesterday)
+        assertEquals(1, second.yesterdayHalf)
+        // First half of the next page: yesterday is the whole page just completed.
+        val first = engine.today(h.take(4), HALF, 40, DayKind.MEMO, start.plusDays(4))
+        assertEquals(PageRange(2, 2), first.yesterday)
+        assertEquals(0, first.yesterdayHalf)
+        assertEquals(PageRange(1, 1), first.linking)
+    }
+
+    @Test fun projectedFinishAtHalfAPage() {
+        val from = LocalDate.of(2026, 11, 9)
+        // 4 pages left = 8 half days, every day.
+        assertEquals(from.plusDays(7), engine.projectedFinish(600, HALF, from, emptySet()))
     }
 }

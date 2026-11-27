@@ -42,15 +42,25 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.fisudur.app.Actions
+import com.fisudur.app.engine.PlanEngine
 import java.time.LocalTime
 
-private data class PlanChoice(val amount: Int, val title: String, val reps: Int, val days: Int)
+private data class PlanChoice(val amount: Int, val title: String, val reps: Int)
 
 private val choices = listOf(
-    PlanChoice(1, "حفظ وجه", 40, 620),
-    PlanChoice(2, "حفظ وجهين", 40, 320),
-    PlanChoice(3, "حفظ ثلاثة أوجه", 30, 218),
+    PlanChoice(0, "حفظ نصف وجه", 40),
+    PlanChoice(1, "حفظ وجه", 40),
+    PlanChoice(2, "حفظ وجهين", 40),
+    PlanChoice(3, "حفظ ثلاثة أوجه", 30),
 )
+
+/** Calendar days to the end of the mushaf from [startPage], with Friday off as the default plan has it. */
+private fun daysToFinish(amount: Int, startPage: Int): Int {
+    val today = java.time.LocalDate.now()
+    val finish = PlanEngine(startPage).projectedFinish(startPage - 1, amount, today, setOf(java.time.DayOfWeek.FRIDAY))
+        ?: return 0
+    return java.time.temporal.ChronoUnit.DAYS.between(today, finish).toInt() + 1
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -59,6 +69,7 @@ fun SetupScreen(a: Actions) {
     var amount by remember { mutableIntStateOf(2) }
     var page by remember { mutableStateOf("1") }
     var dayEnd by remember { mutableIntStateOf(4 * 60) }
+    var known by remember { mutableStateOf(false) }
     Column(Modifier.verticalScroll(rememberScrollState())) {
         // Welcome hero.
         Box(
@@ -82,7 +93,8 @@ fun SetupScreen(a: Actions) {
 
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             SectionTitle("اختر خطتك")
-            choices.forEach { c -> PlanCard(c, c.amount == amount) { amount = c.amount } }
+            val from = page.toIntOrNull()?.coerceIn(1, 604) ?: 1
+            choices.forEach { c -> PlanCard(c, daysToFinish(c.amount, from), c.amount == amount) { amount = c.amount } }
             Text("يمكنك تغيير المقدار لاحقًا في أي يوم.", style = MaterialTheme.typography.bodySmall, color = pal.muted)
 
             SectionTitle("متى ينتهي يومك؟")
@@ -102,12 +114,26 @@ fun SetupScreen(a: Actions) {
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth(),
             )
+            val startAt = page.toIntOrNull()?.coerceIn(1, 604) ?: 1
+            if (startAt > 1) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("أحفظ ما قبله", style = MaterialTheme.typography.bodyLarge, color = pal.ink)
+                        Text(
+                            "الأوجه من ١ إلى ${(startAt - 1).ar()} محفوظة عندي، فتدخل الربط والمراجعة من أول يوم.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = pal.muted,
+                        )
+                    }
+                    androidx.compose.material3.Switch(checked = known, onCheckedChange = { known = it })
+                }
+            }
 
             Spacer(Modifier.height(4.dp))
             Box(
                 Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(20.dp))
                     .background(Brush.horizontalGradient(listOf(pal.gold, Color(0xFFB0832F))))
-                    .clickable { a.startPlan(amount, page.toIntOrNull()?.coerceIn(1, 604) ?: 1, dayEnd) },
+                    .clickable { a.startPlan(amount, page.toIntOrNull()?.coerceIn(1, 604) ?: 1, dayEnd, known) },
                 contentAlignment = Alignment.Center,
             ) {
                 Text("ابدأ على بركة الله", style = MaterialTheme.typography.titleMedium, color = Color.White)
@@ -118,7 +144,7 @@ fun SetupScreen(a: Actions) {
 }
 
 @Composable
-private fun PlanCard(c: PlanChoice, selected: Boolean, onClick: () -> Unit) {
+private fun PlanCard(c: PlanChoice, days: Int, selected: Boolean, onClick: () -> Unit) {
     val pal = LocalPalette.current
     val border by animateColorAsState(if (selected) pal.gold else pal.line, label = "plan")
     Row(
@@ -131,13 +157,13 @@ private fun PlanCard(c: PlanChoice, selected: Boolean, onClick: () -> Unit) {
             Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(if (selected) MaterialTheme.colorScheme.primary else pal.goldSoft),
             contentAlignment = Alignment.Center,
         ) {
-            Text(c.amount.ar(), style = MaterialTheme.typography.headlineMedium, color = if (selected) pal.gold else pal.ink)
+            Text(if (c.amount == 0) "½" else c.amount.ar(), style = MaterialTheme.typography.headlineMedium, color = if (selected) pal.gold else pal.ink)
         }
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(c.title, style = MaterialTheme.typography.titleMedium, color = pal.ink)
             Text(
-                "تكرار ${c.reps.ar()} مرة، نحو ${c.days.ar()} يومًا",
+                "تكرار ${c.reps.ar()} مرة، نحو ${daysText(days.toLong())} مع إجازة الجمعة",
                 style = MaterialTheme.typography.bodySmall,
                 color = pal.muted,
             )
