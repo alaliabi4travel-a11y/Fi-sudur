@@ -76,10 +76,13 @@ class HapticActions(private val a: Actions, private val s: UiState, private val 
         h.tick()
         a.saveSettings(new)
     }
-    override fun startPlan(amount: Int, startPage: Int, dayEndMinutes: Int) { h.success(); a.startPlan(amount, startPage, dayEndMinutes) }
+    override fun startPlan(amount: Int, startPage: Int, dayEndMinutes: Int, memorizedBefore: Boolean) { h.success(); a.startPlan(amount, startPage, dayEndMinutes, memorizedBefore) }
+    override fun postponeNew() { h.confirm(); a.postponeNew() }
+    override fun toggleWeak(page: Int) { h.tick(); a.toggleWeak(page) }
+    override fun editDay(date: LocalDate, kind: DayKind?, reason: String?) { if (kind == null) h.undo() else h.confirm(); a.editDay(date, kind, reason) }
     override fun resetAll() { h.undo(); a.resetAll() }
     override fun backfill(date: LocalDate, kind: DayKind, reason: String?) { h.confirm(); a.backfill(date, kind, reason) }
-    override fun restoreAutoBackup() { h.confirm(); a.restoreAutoBackup() }
+    override fun restoreAutoBackup(name: String?) { h.confirm(); a.restoreAutoBackup(name) }
 
     private fun willCompleteAll(st: UiState, stepId: String) =
         st.steps.all { it.id == stepId || it.id in st.progress.checked }

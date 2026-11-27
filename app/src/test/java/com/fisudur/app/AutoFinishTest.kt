@@ -95,4 +95,32 @@ class AutoFinishTest {
         // 1 Ramadan 1447 = 18 February 2026 (Umm al-Qura).
         assertEquals("1 رمضان 1447", com.fisudur.app.ui.Fmt.hijri(LocalDate.of(2026, 2, 18)))
     }
+
+    @Test
+    fun weakPagesAddAStepAndMustBeDoneToAutoFinish() {
+        val weak = mapOf(5 to 3, 9 to 1)
+        val s = buildUiState(start.atTime(12, 0), settings, emptyList(), null, weak)
+        val step = s.steps.first { it.id == "weak" }
+        assertEquals(listOf(5, 9), step.pageList)
+        val all = setOf("tafsir", "listen", "memorize", "record", "repeat")
+        assertNull(autoFinishEntry(settings, emptyList(), DayProgress(start, checked = all), start.plusDays(1), weak))
+        val e = autoFinishEntry(settings, emptyList(), DayProgress(start, checked = all + "weak"), start.plusDays(1), weak)
+        assertEquals(DayKind.MEMO, e!!.kind)
+    }
+
+    @Test
+    fun linkingAndReviewCarryTheirPages() {
+        var h = emptyList<com.fisudur.app.engine.DayEntry>()
+        var d = start
+        val one = settings.copy(offWeekdays = emptySet())
+        repeat(25) {
+            val s = buildUiState(d.atTime(12, 0), one, h, null)
+            h = h + com.fisudur.app.engine.DayEntry(d, DayKind.MEMO, s.plan.newPages)
+            d = d.plusDays(1)
+        }
+        val s = buildUiState(d.atTime(12, 0), one, h, null)
+        assertEquals(20, s.steps.first { it.id == "link" }.pageList.size)
+        assertEquals(listOf(25), s.steps.first { it.id == "yesterday" }.pageList)
+        assertEquals(true, s.steps.first { it.id == "review" }.pageList.isNotEmpty())
+    }
 }

@@ -13,6 +13,8 @@ import com.fisudur.app.engine.DayEntry
 import com.fisudur.app.engine.DayKind
 import com.fisudur.app.engine.PlanEngine
 import com.fisudur.app.engine.PlanRules
+import com.fisudur.app.ui.ar
+import com.fisudur.app.ui.daysText
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,12 +25,16 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 
+/** The reason recorded for a day closed without its new pages. */
+const val POSTPONED = "تأجيل"
+
 class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
     private val store = Store(app)
     private var settings = store.loadSettings()
     private var history: List<DayEntry> = store.loadHistory()
     private var progress: DayProgress? = store.loadProgress()
     private var nextProgress: DayProgress? = store.loadNextProgress()
+    private var weak: Map<Int, Int> = store.loadWeak()
 
     private var update: UpdateState = UpdateState.Idle
 
@@ -47,6 +53,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
     init {
         checkUpdate(quiet = true)
         runCatching { store.autoBackup() }
+        copyToFolder()
         readLastBackup()
         refresh()
         Reminders.schedule(app)
@@ -65,7 +72,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
             ticker = viewModelScope.launch {
                 while (true) {
                     delay(1000)
-                    refresh()
+                    tick()
                 }
             }
         }
@@ -86,9 +93,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
     private fun build(): UiState {
         val now = LocalDateTime.now()
         // A day that ended fully done (or as a chosen off day) is recorded even if "finish" was not pressed.
-        autoFinishEntry(settings, history, progress, DayClock(settings.dayEnd).planDate(now))?.let { e ->
+        autoFinishEntry(settings, history, progress, DayClock(settings.dayEnd).planDate(now), weak)?.let { e ->
             history = (history + e).sortedBy { it.date }
             store.saveHistory(history)
+            store.settleWeak(progress)
+            weak = store.loadWeak()
         }
         val today = DayClock(settings.dayEnd).planDate(now)
         // Tomorrow has come: what was started early becomes today's progress.
@@ -100,12 +109,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
             nextProgress = null
             store.saveNextProgress(null)
         }
-        val base = buildUiState(now, settings, history, progress)
+        val base = buildUiState(now, settings, history, progress, weak)
         val tomorrow = if (base.doneToday != null) {
             val start = DayClock(settings.dayEnd).dayEnd(now).plusMinutes(1)
-            buildUiState(start, settings, history, nextProgress)
+            buildUiState(start, settings, history, nextProgress, weak)
         } else null
-        val s = base.copy(update = update, lastAutoBackup = lastBackup, tomorrow = tomorrow)
+        val s = base.copy(update = update, lastAutoBackup = lastBackup, tomorrow = tomorrow, lastFolderCopy = store.lastFolderCopy())
         if (progress != s.progress) {
             progress = s.progress
             store.saveProgress(s.progress)
@@ -115,6 +124,16 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
 
     private fun refresh() {
         _state.value = build()
+    }
+
+    /**
+     * Each second only the clock moves: the countdown is redrawn without rebuilding the plan.
+     * When the plan day changes, everything is rebuilt (and a finished day recorded).
+     */
+    private fun tick() {
+        val now = LocalDateTime.now()
+        val s = _state.value
+        if (DayClock(settings.dayEnd).planDate(now) == s.planDate) _state.value = s.copy(now = now) else refresh()
     }
 
     private fun update(block: (DayProgress) -> DayProgress) {
@@ -196,6 +215,19 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         if (s.doneToday != null) return
         history = (history + DayEntry(s.planDate, s.plan.kind, s.plan.newPages, s.progress.reason.takeIf { s.plan.kind == DayKind.OFF })).sortedBy { it.date }
         store.saveHistory(history)
+        store.settleWeak(s.progress)
+        weak = store.loadWeak()
+        changed()
+    }
+
+    override fun postponeNew() {
+        // The day is closed without the new pages: they stay for the next memorizing day.
+        val s = _state.value
+        if (s.doneToday != null) return
+        history = (history + DayEntry(s.planDate, DayKind.OFF, null, POSTPONED)).sortedBy { it.date }
+        store.saveHistory(history)
+        store.settleWeak(s.progress)
+        weak = store.loadWeak()
         changed()
     }
 
@@ -203,7 +235,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         val date = _state.value.planDate
         history = history.filterNot { it.date == date }
         store.saveHistory(history)
+        store.unsettleWeak(date)
+        weak = store.loadWeak()
         changed()
+    }
+
+    override fun toggleWeak(page: Int) {
+        weak = if (page in weak) weak - page else weak + (page to PlanRules.WEAK_DAYS)
+        store.saveWeak(weak)
+        changed()
+    }
+
+    override fun canEditDay(s: UiState, date: LocalDate): Boolean {
+        val e = s.history.firstOrNull { it.date == date } ?: return false
+        if (!date.isBefore(s.planDate)) return false
+        // A memorizing day can change only when no later day memorized, so no later pages move.
+        return e.kind == DayKind.OFF || s.history.none { it.kind == DayKind.MEMO && it.date.isAfter(date) }
+    }
+
+    override fun editDay(date: LocalDate, kind: DayKind?, reason: String?) {
+        val s = _state.value
+        if (!canEditDay(s, date)) return
+        history = history.filterNot { it.date == date }
+        if (kind == DayKind.OFF) history = (history + DayEntry(date, DayKind.OFF, null, reason)).sortedBy { it.date }
+        store.saveHistory(history)
+        changed()
+        toast(if (kind == null) "حُذف تسجيل اليوم" else if (reason != null) "صار يوم عذر: $reason" else "صار يوم إجازة")
     }
 
     override fun backfill(date: LocalDate, kind: DayKind, reason: String?) {
@@ -211,7 +268,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         if (!date.isBefore(s.planDate) || history.any { it.date == date }) return
         val entry = if (kind == DayKind.MEMO && canBackfillMemo(s, date)) {
             val reps = settings.repetitions ?: PlanRules.defaultRepetitions(settings.amount)
-            val pages = PlanEngine(settings.startPage).today(history, settings.amount, reps, DayKind.MEMO, date).newPages
+            val pages = PlanEngine(settings.startPage, firstKnown = settings.firstKnown).today(history, settings.amount, reps, DayKind.MEMO, date).newPages
             DayEntry(date, DayKind.MEMO, pages)
         } else {
             DayEntry(date, DayKind.OFF, null, reason)
@@ -230,6 +287,21 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
             .onFailure { toast("تعذّر حفظ الملف") }
     }
 
+    override fun preview(uri: Uri): String? = runCatching {
+        val text = getApplication<Application>().contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+        describe(store.summarize(text))
+    }.getOrNull()
+
+    override fun backups(): List<Pair<String, String>> = store.autoBackups().mapNotNull { f ->
+        runCatching { f.name to describe(store.summarize(f.readText())) }.getOrNull()
+    }
+
+    private fun describe(s: com.fisudur.app.data.Store.Summary): String {
+        val at = s.exportedAt.take(16).replace('T', ' ')
+        val last = s.lastPage?.let { "، آخر وجه ${it.ar()}" } ?: ""
+        return "${at.ar()}: ${daysText(s.days.toLong())} مسجّلة$last"
+    }
+
     override fun importFrom(uri: Uri) {
         val app = getApplication<Application>()
         runCatching {
@@ -242,9 +314,12 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         }.onFailure { toast("هذا الملف ليس نسخة احتياطية من «في صدور»") }
     }
 
-    override fun restoreAutoBackup() {
-        val file = store.autoBackups().firstOrNull() ?: return toast("لا توجد نسخة تلقائية بعد")
-        runCatching { store.importJson(file.readText()) }
+    override fun restoreAutoBackup(name: String?) {
+        val file = store.autoBackups().firstOrNull { name == null || it.name == name } ?: return toast("لا توجد نسخة تلقائية بعد")
+        val text = file.readText()
+        // A copy of now first, so a restore by mistake can itself be undone.
+        runCatching { store.autoBackup(force = true) }
+        runCatching { store.importJson(text) }
             .onSuccess {
                 reload()
                 toast("استُعيدت نسخة ${file.name.take(10)}")
@@ -259,7 +334,32 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         history = store.loadHistory()
         progress = store.loadProgress()
         nextProgress = store.loadNextProgress()
+        weak = store.loadWeak()
         changed()
+    }
+
+    override fun chooseBackupFolder(uri: Uri?) {
+        val app = getApplication<Application>()
+        if (uri != null) {
+            runCatching {
+                app.contentResolver.takePersistableUriPermission(
+                    uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+            }
+        }
+        saveSettings(settings.copy(backupFolder = uri?.toString()))
+        if (uri != null) copyToFolder(force = true, tell = true)
+    }
+
+    /** Writes the backup into the folder the person chose, once a day (or now, when asked). */
+    private fun copyToFolder(force: Boolean = false, tell: Boolean = false) {
+        val folder = settings.backupFolder ?: return
+        val today = LocalDate.now().toString()
+        if (!force && store.lastFolderCopy() == today) return
+        val ok = Backups.writeToFolder(getApplication(), folder, store.exportJson())
+        if (ok) store.setLastFolderCopy(today)
+        if (tell) toast(if (ok) "حُفظت نسخة في المجلد" else "تعذّرت الكتابة في المجلد، اختره من جديد")
+        refresh()
     }
 
     override fun saveSettings(new: Settings) {
@@ -280,12 +380,13 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         changed()
     }
 
-    override fun startPlan(amount: Int, startPage: Int, dayEndMinutes: Int) {
+    override fun startPlan(amount: Int, startPage: Int, dayEndMinutes: Int, memorizedBefore: Boolean) {
         val clock = DayClock(LocalTime.of(dayEndMinutes / 60, dayEndMinutes % 60))
         saveSettings(
             settings.copy(
                 amount = amount,
                 startPage = startPage,
+                memorizedBefore = memorizedBefore && startPage > 1,
                 dayEndMinutes = dayEndMinutes,
                 startDate = clock.planDate(LocalDateTime.now()),
             ),
@@ -347,6 +448,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         readLastBackup()
         settings = Settings()
         history = emptyList()
+        weak = emptyMap()
         progress = null
         nextProgress = null
         changed()

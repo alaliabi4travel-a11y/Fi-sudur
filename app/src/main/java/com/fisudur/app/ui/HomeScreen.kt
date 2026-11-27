@@ -4,6 +4,10 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,6 +65,7 @@ import java.time.Duration
 @Composable
 fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
     var confirmFinish by remember { mutableStateOf(false) }
+    var marking by remember { mutableStateOf<Step?>(null) }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         FillScreen(
             minHeight = maxHeight - 12.dp,
@@ -75,19 +80,40 @@ fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
                 DoneCard(s, a)
                 s.tomorrow?.let { t -> TomorrowCard(t, a) }
             } else {
-                Timeline(s, a, openCounter)
+                Timeline(s, a, openCounter) { marking = it }
+                if (s.weak.isEmpty() && s.steps.any { it.pageList.isNotEmpty() }) {
+                    Text(
+                        "اضغط مطولًا على الربط أو المراجعة لتعليم وجه تعثّرت فيه.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = LocalPalette.current.muted,
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                    )
+                }
                 Box(Modifier.layoutId(FILL_FOOT)) { FinishButton(s) { if (s.allChecked) a.finishDay() else confirmFinish = true } }
                 OffDayToggle(s, a)
             }
         }
     }
+    marking?.let { step -> WeakPagesDialog(step, s.weak, a) { marking = null } }
     if (confirmFinish) {
         AlertDialog(
             onDismissRequest = { confirmFinish = false },
             title = { Text("لم تكمل كل الخطوات") },
-            text = { Text("هل تريد إنهاء اليوم على كل حال؟ سيُحسب اليوم منجزًا.") },
+            text = {
+                Text(
+                    if (s.plan.newPages != null) "«إنهاء اليوم» يحسب الأوجه الجديدة محفوظة. وإن لم تحفظها بعد، اختر «أكمل الجديد لاحقًا» فتبقى ليوم الحفظ القادم."
+                    else "هل تريد إنهاء اليوم على كل حال؟ سيُحسب اليوم منجزًا.",
+                )
+            },
             confirmButton = { TextButton(onClick = { confirmFinish = false; a.finishDay() }) { Text("إنهاء اليوم") } },
-            dismissButton = { TextButton(onClick = { confirmFinish = false }) { Text("رجوع") } },
+            dismissButton = {
+                Row {
+                    if (s.plan.newPages != null) {
+                        TextButton(onClick = { confirmFinish = false; a.postponeNew() }) { Text("أكمل الجديد لاحقًا") }
+                    }
+                    TextButton(onClick = { confirmFinish = false }) { Text("رجوع") }
+                }
+            },
         )
     }
 }
@@ -202,7 +228,7 @@ private fun TodayCard(s: UiState) {
 }
 
 @Composable
-private fun Timeline(s: UiState, a: Actions, openCounter: () -> Unit) {
+private fun Timeline(s: UiState, a: Actions, openCounter: () -> Unit, onMark: (Step) -> Unit) {
     run {
         s.steps.forEachIndexed { i, step ->
             TimelineRow(
@@ -221,11 +247,41 @@ private fun Timeline(s: UiState, a: Actions, openCounter: () -> Unit) {
                 },
                 // Repetition is checked only by the counter reaching its target.
                 onCheck = { if (step.action == StepAction.COUNTER) openCounter() else a.toggle(step.id) },
+                onLongPress = if (step.pageList.isNotEmpty() && step.kind != com.fisudur.app.StepKind.WEAK) ({ onMark(step) }) else null,
             )
         }
     }
 }
 
+/** Pick the pages of a step that slipped: each gets a few days of extra readings. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+private fun WeakPagesDialog(step: Step, weak: Map<Int, Int>, a: Actions, onDone: () -> Unit) {
+    val pal = LocalPalette.current
+    AlertDialog(
+        onDismissRequest = onDone,
+        title = { Text("أي وجه تعثّرت فيه؟") },
+        text = {
+            Column(Modifier.heightIn(max = 380.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(
+                    "يظهر كل وجه تختاره في خطوة «الأوجه الضعيفة» ${com.fisudur.app.engine.PlanRules.WEAK_REPS.ar()} مرات يوميًا، " +
+                        "لمدة ${com.fisudur.app.engine.PlanRules.WEAK_DAYS.ar()} أيام تنجزها.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = pal.muted,
+                )
+                androidx.compose.foundation.layout.FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    step.pageList.forEach { p -> Pill(p.ar(), p in weak) { a.toggleWeak(p) } }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = onDone) { Text("تم") } },
+    )
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun TimelineRow(
     step: Step,
@@ -236,20 +292,28 @@ private fun TimelineRow(
     tally: Int,
     onOpen: () -> Unit,
     onCheck: () -> Unit,
+    onLongPress: (() -> Unit)? = null,
 ) {
     val pal = LocalPalette.current
     val node by animateColorAsState(if (checked) pal.gold else pal.card, label = "node")
     Row(Modifier.layoutId(FILL_ROW).fillMaxWidth().height(IntrinsicSize.Min)) {
         // the rail: the node sits on the middle of its card, the line runs through the gap below
-        Column(Modifier.width(28.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(Modifier.width(32.dp).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.width(2.dp).weight(1f).background(if (first) Color.Transparent else pal.line))
+            // A larger touch area around the small circle, named for screen readers.
             Box(
-                Modifier.size(20.dp).clip(CircleShape).background(node)
-                    .border(2.dp, if (checked) pal.gold else pal.line, CircleShape)
-                    .clickable(onClick = onCheck),
+                Modifier.size(32.dp).clip(CircleShape)
+                    .clickable(onClickLabel = if (checked) "إلغاء الإنجاز" else "إنجاز", onClick = onCheck)
+                    .semantics { contentDescription = (if (checked) "منجز: " else "لم يُنجز: ") + step.title },
                 contentAlignment = Alignment.Center,
             ) {
-                if (checked) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                Box(
+                    Modifier.size(20.dp).clip(CircleShape).background(node)
+                        .border(2.dp, if (checked) pal.gold else pal.line, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (checked) Icon(Icons.Filled.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                }
             }
             Box(Modifier.width(2.dp).weight(1f).background(if (last) Color.Transparent else pal.line))
             Box(Modifier.width(2.dp).height(RAIL_GAP).background(if (last) Color.Transparent else pal.line))
@@ -261,7 +325,7 @@ private fun TimelineRow(
                 .clip(RoundedCornerShape(16.dp))
                 .background(if (checked) pal.goldSoft.copy(alpha = .55f) else pal.card)
                 .border(1.dp, if (checked) pal.gold.copy(alpha = .35f) else pal.line, RoundedCornerShape(16.dp))
-                .clickable(onClick = onOpen)
+                .combinedClickable(onClick = onOpen, onLongClick = onLongPress, onLongClickLabel = onLongPress?.let { "تعليم وجه ضعيف" })
                 .padding(horizontal = 10.dp, vertical = 7.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

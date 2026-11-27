@@ -23,7 +23,14 @@ data class Settings(
     val reminderMinutes: Int? = 20 * 60,
     /** A second reminder an hour before the day ends, only if the day is not finished. */
     val lateReminder: Boolean = true,
+    /** The pages before [startPage] were memorized earlier: they join linking and review from day one. */
+    val memorizedBefore: Boolean = false,
+    /** A folder (a document tree the person picked) where a copy is written every day; null = none. */
+    val backupFolder: String? = null,
 ) {
+    /** The first page held: 1 when the pages before the start were memorized earlier. */
+    val firstKnown: Int get() = if (memorizedBefore) 1 else startPage
+
     val dayEnd: LocalTime get() = LocalTime.of(dayEndMinutes / 60, dayEndMinutes % 60)
 }
 
@@ -73,6 +80,8 @@ class Store(context: Context) {
             startPage = o.optInt("startPage", 1),
             reminderMinutes = if (!o.has("remind")) 20 * 60 else if (o.isNull("remind")) null else o.getInt("remind"),
             lateReminder = o.optBoolean("late", true),
+            memorizedBefore = o.optBoolean("known", false),
+            backupFolder = o.optString("folder", "").takeIf { it.isNotEmpty() },
         )
     }
 
@@ -86,6 +95,8 @@ class Store(context: Context) {
             .put("startPage", s.startPage)
             .put("remind", s.reminderMinutes ?: JSONObject.NULL)
             .put("late", s.lateReminder)
+            .put("known", s.memorizedBefore)
+            .put("folder", s.backupFolder ?: "")
         prefs.edit().putString("settings", o.toString()).commit()
     }
 
@@ -174,7 +185,72 @@ class Store(context: Context) {
         .put("settings", prefs.getString("settings", null)?.let(::JSONObject) ?: JSONObject())
         .put("history", prefs.getString("history", null)?.let(::JSONArray) ?: JSONArray())
         .put("progress", prefs.getString("progress", null)?.let(::JSONObject) ?: JSONObject.NULL)
+        .put("weak", prefs.getString("weak", null)?.let(::JSONObject) ?: JSONObject())
         .toString(2)
+
+    /** What a backup holds, read without restoring it: shown before a restore. */
+    data class Summary(val exportedAt: String, val days: Int, val lastPage: Int?, val startDate: String?)
+
+    fun summarize(text: String): Summary {
+        val o = JSONObject(text)
+        require(o.optString("app") == "fi-sudur") { "not a backup" }
+        val h = o.getJSONArray("history")
+        var last: Int? = null
+        for (i in 0 until h.length()) {
+            val e = h.getJSONObject(i)
+            if (e.has("t")) last = maxOf(last ?: 0, e.getInt("t"))
+        }
+        return Summary(
+            exportedAt = o.optString("exportedAt", ""),
+            days = h.length(),
+            lastPage = last,
+            startDate = o.optJSONObject("settings")?.optString("start", "")?.takeIf { it.isNotEmpty() },
+        )
+    }
+
+    /** The day a copy last went to the chosen backup folder. */
+    fun lastFolderCopy(): String? = prefs.getString("folderCopy", null)
+
+    fun setLastFolderCopy(day: String) {
+        prefs.edit().putString("folderCopy", day).commit()
+    }
+
+    // ---- Weak pages ----------------------------------------------------------
+
+    /** Pages marked as shaky, each with the days of extra reading left before it counts as settled. */
+    fun loadWeak(): Map<Int, Int> {
+        val o = prefs.getString("weak", null)?.let(::JSONObject) ?: return emptyMap()
+        return o.keys().asSequence().associate { it.toInt() to o.getInt(it) }
+    }
+
+    fun saveWeak(w: Map<Int, Int>) {
+        val o = JSONObject()
+        w.toSortedMap().forEach { (p, n) -> o.put(p.toString(), n) }
+        prefs.edit().putString("weak", o.toString()).commit()
+    }
+
+    /**
+     * A day was recorded: if its weak-pages step was done, each weak page has one day less to go,
+     * and settles at zero. The pages as they were are kept, so "undo finish" can put them back.
+     */
+    fun settleWeak(day: DayProgress?) {
+        if (day == null || "weak" !in day.checked) return
+        // Once per day, though the alarm and the open app may both record it.
+        if (prefs.getString("weakBefore", null)?.let(::JSONObject)?.optString("d") == day.date.toString()) return
+        val before = loadWeak()
+        prefs.edit().putString("weakBefore", JSONObject().put("d", day.date.toString())
+            .put("w", JSONObject(before.mapKeys { it.key.toString() })).toString()).commit()
+        saveWeak(before.mapValues { it.value - 1 }.filterValues { it > 0 })
+    }
+
+    /** Undoes [settleWeak] for [date], if that day settled them. */
+    fun unsettleWeak(date: LocalDate) {
+        val o = prefs.getString("weakBefore", null)?.let(::JSONObject) ?: return
+        if (o.optString("d") != date.toString()) return
+        val w = o.getJSONObject("w")
+        saveWeak(w.keys().asSequence().associate { it.toInt() to w.getInt(it) })
+        prefs.edit().remove("weakBefore").commit()
+    }
 
     /** Restores an exported document. Throws if it is not one of ours; nothing changes in that case. */
     fun importJson(text: String) {
@@ -195,6 +271,8 @@ class Store(context: Context) {
                 if (p is JSONObject) putString("progress", p.toString()) else remove("progress")
             }
             .remove("next")
+            .remove("weakBefore")
+            .apply { val w = o.optJSONObject("weak"); if (w != null) putString("weak", w.toString()) else remove("weak") }
             .putInt("schema", SCHEMA)
             .commit()
     }

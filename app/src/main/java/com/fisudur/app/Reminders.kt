@@ -81,12 +81,16 @@ object Reminders {
         val settings = store.loadSettings()
         val history = store.loadHistory()
         val today = com.fisudur.app.engine.DayClock(settings.dayEnd).planDate(LocalDateTime.now())
-        autoFinishEntry(settings, history, store.loadProgress(), today)?.let { store.saveHistory(history + it) }
+        val day = store.loadProgress()
+        autoFinishEntry(settings, history, day, today, store.loadWeak())?.let {
+            store.saveHistory(history + it)
+            store.settleWeak(day)
+        }
     }
 
     fun show(context: Context, late: Boolean) {
         val store = Store(context)
-        val s = buildUiState(LocalDateTime.now(), store.loadSettings(), store.loadHistory(), store.loadProgress())
+        val s = buildUiState(LocalDateTime.now(), store.loadSettings(), store.loadHistory(), store.loadProgress(), store.loadWeak())
         if (s.needsSetup || s.doneToday != null) return
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED

@@ -169,4 +169,49 @@ class PlanEngineTest {
         // 504 pages = 252 memorizing days = 42 weeks of 6 days.
         assertEquals(LocalDate.of(2026, 11, 9).plusDays(293), finish)
     }
+
+    @Test fun pagesMemorizedBeforeTheStartJoinLinkingAndReview() {
+        // Starting at page 300 with pages 1..299 already held.
+        val e = PlanEngine(startPage = 300, firstKnown = 1)
+        val day1 = e.today(emptyList(), 1, 40, DayKind.MEMO, start)
+        assertEquals(PageRange(300, 300), day1.newPages)
+        assertEquals(PageRange(280, 299), day1.linking)
+        assertEquals(PageRange(1, 20), day1.review)
+        val h = listOf(DayEntry(start, DayKind.MEMO, PageRange(300, 300)))
+        val day2 = e.today(h, 1, 40, DayKind.MEMO, start.plusDays(1))
+        assertEquals(PageRange(300, 300), day2.yesterday)
+        assertEquals(PageRange(21, 40), day2.review)
+    }
+
+    @Test fun withoutEarlierPagesTheStartIsTheFirstPage() {
+        val e = PlanEngine(startPage = 300)
+        val day1 = e.today(emptyList(), 1, 40, DayKind.MEMO, start)
+        assertNull(day1.linking)
+        assertNull(day1.review)
+    }
+
+    @Test fun statsCountOnlyPagesHeld() {
+        val h = listOf(DayEntry(start, DayKind.MEMO, PageRange(300, 301)))
+        val fresh = StatsCalculator.compute(h, start, 300, start.plusDays(1), 2, emptySet())
+        assertEquals(2, fresh.pagesMemorized)
+        assertEquals(0, fresh.percent)
+        val known = StatsCalculator.compute(h, start, 300, start.plusDays(1), 2, emptySet(), firstKnown = 1)
+        assertEquals(301, known.pagesMemorized)
+        assertEquals(49, known.percent)
+    }
+
+    @Test fun paceFollowsTheLastThirtyDays() {
+        // One page every other day for 30 days: 15 pages, 3.5 a week.
+        val h = mutableListOf<DayEntry>()
+        var p = 1
+        for (i in 0 until 30) {
+            val d = start.plusDays(i.toLong())
+            h += if (i % 2 == 0) DayEntry(d, DayKind.MEMO, PageRange(p, p).also { p++ }) else DayEntry(d, DayKind.OFF, null, "عمل")
+        }
+        val today = start.plusDays(30)
+        val st = StatsCalculator.compute(h, start, 1, today, 1, emptySet())
+        assertEquals(3.5, st.pagesPerWeek!!, 0.01)
+        // 589 pages left at half a page a day.
+        assertEquals(today.plusDays(1178), st.paceFinish)
+    }
 }

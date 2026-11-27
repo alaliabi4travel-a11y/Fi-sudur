@@ -68,6 +68,7 @@ fun SetupScreen(a: Actions) {
     var amount by remember { mutableIntStateOf(2) }
     var page by remember { mutableStateOf("1") }
     var dayEnd by remember { mutableIntStateOf(4 * 60) }
+    var known by remember { mutableStateOf(false) }
     Column(Modifier.verticalScroll(rememberScrollState())) {
         // Welcome hero.
         Box(
@@ -112,12 +113,26 @@ fun SetupScreen(a: Actions) {
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.fillMaxWidth(),
             )
+            val startAt = page.toIntOrNull()?.coerceIn(1, 604) ?: 1
+            if (startAt > 1) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("أحفظ ما قبله", style = MaterialTheme.typography.bodyLarge, color = pal.ink)
+                        Text(
+                            "الأوجه من ١ إلى ${(startAt - 1).ar()} محفوظة عندي، فتدخل الربط والمراجعة من أول يوم.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = pal.muted,
+                        )
+                    }
+                    androidx.compose.material3.Switch(checked = known, onCheckedChange = { known = it })
+                }
+            }
 
             Spacer(Modifier.height(4.dp))
             Box(
                 Modifier.fillMaxWidth().height(58.dp).clip(RoundedCornerShape(20.dp))
                     .background(Brush.horizontalGradient(listOf(pal.gold, Color(0xFFB0832F))))
-                    .clickable { a.startPlan(amount, page.toIntOrNull()?.coerceIn(1, 604) ?: 1, dayEnd) },
+                    .clickable { a.startPlan(amount, page.toIntOrNull()?.coerceIn(1, 604) ?: 1, dayEnd, known) },
                 contentAlignment = Alignment.Center,
             ) {
                 Text("ابدأ على بركة الله", style = MaterialTheme.typography.titleMedium, color = Color.White)

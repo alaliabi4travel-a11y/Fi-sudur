@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Link
@@ -84,6 +85,7 @@ fun stepIcon(kind: StepKind): ImageVector = when (kind) {
     StepKind.RECORD -> Icons.Outlined.Mic
     StepKind.LINK -> Icons.Outlined.Link
     StepKind.REVIEW -> Icons.Outlined.AutoStories
+    StepKind.WEAK -> Icons.Outlined.ErrorOutline
 }
 
 /** An eight-pointed star (two overlapping squares), the classic khatam motif. */

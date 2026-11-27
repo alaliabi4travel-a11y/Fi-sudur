@@ -22,6 +22,9 @@ object PlanRules {
     const val RECORD_REPS = 3
     const val LISTEN_REPS = 3
     const val TAFSIR_REPS = 1
+    /** Readings a day for each weak page, and for how many recorded days. */
+    const val WEAK_REPS = 3
+    const val WEAK_DAYS = 3
 
     fun defaultRepetitions(amount: Int): Int = if (amount >= 3) 30 else 40
 }
@@ -70,6 +73,11 @@ data class TodayPlan(
 class PlanEngine(
     private val startPage: Int = 1,
     private val totalPages: Int = QuranData.TOTAL_PAGES,
+    /**
+     * The first page already held before the plan: [startPage] normally, or 1 when the pages
+     * before the start were memorized earlier, so they join linking and review from day one.
+     */
+    private val firstKnown: Int = startPage,
 ) {
     private class Layers(val yesterday: PageRange?, val linking: PageRange?, val oldTo: Int)
 
@@ -85,9 +93,9 @@ class PlanEngine(
             last?.takeIf { it.kind == DayKind.MEMO && (date == null || it.date == date.minusDays(1)) }?.pages
         }
         val linkEnd = if (yesterday != null) yesterday.from - 1 else memorized
-        val linkFrom = maxOf(startPage, linkEnd - PlanRules.LINK_PAGES + 1)
+        val linkFrom = maxOf(firstKnown, linkEnd - PlanRules.LINK_PAGES + 1)
         val linking = if (linkEnd >= linkFrom) PageRange(linkFrom, linkEnd) else null
-        return Layers(yesterday, linking, if (linking != null) linking.from - 1 else startPage - 1)
+        return Layers(yesterday, linking, if (linking != null) linking.from - 1 else firstKnown - 1)
     }
 
     /**
@@ -111,7 +119,7 @@ class PlanEngine(
         } else null
 
         // Walk every recorded day, then today, keeping the review's place.
-        var cursor = startPage
+        var cursor = firstKnown
         var wraps = 0
         var review: PageRange? = null
         var reviewWrap: PageRange? = null
@@ -127,15 +135,15 @@ class PlanEngine(
             var first: PageRange? = null
             var second: PageRange? = null
             var fromStart = false
-            if (l.oldTo >= startPage) {
-                val amount = minOf(PlanRules.REVIEW_PAGES, l.oldTo - startPage + 1)
-                if (cursor > l.oldTo || cursor < startPage) cursor = startPage
-                fromStart = cursor == startPage
+            if (l.oldTo >= firstKnown) {
+                val amount = minOf(PlanRules.REVIEW_PAGES, l.oldTo - firstKnown + 1)
+                if (cursor > l.oldTo || cursor < firstKnown) cursor = firstKnown
+                fromStart = cursor == firstKnown
                 first = PageRange(cursor, minOf(l.oldTo, cursor + amount - 1))
                 val rest = amount - first.count
                 if (rest > 0) {
-                    second = PageRange(startPage, startPage + rest - 1)
-                    cursor = startPage + rest
+                    second = PageRange(firstKnown, firstKnown + rest - 1)
+                    cursor = firstKnown + rest
                     wraps++
                 } else {
                     cursor = first.to + 1
