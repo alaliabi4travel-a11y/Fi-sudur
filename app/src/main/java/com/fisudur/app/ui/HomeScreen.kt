@@ -66,6 +66,8 @@ import java.time.Duration
 fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
     var confirmFinish by remember { mutableStateOf(false) }
     var marking by remember { mutableStateOf<Step?>(null) }
+    var page by remember { mutableStateOf<Step?>(null) }
+    var recordOpen by remember { mutableStateOf(false) }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         FillScreen(
             minHeight = maxHeight - 12.dp,
@@ -80,7 +82,7 @@ fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
                 DoneCard(s, a)
                 s.tomorrow?.let { t -> TomorrowCard(t, a) }
             } else {
-                Timeline(s, a, openCounter) { marking = it }
+                Timeline(s, a, openCounter, onMark = { marking = it }, onPage = { page = it }, onRecord = { recordOpen = true })
                 if (s.weak.isEmpty() && s.steps.any { it.pageList.isNotEmpty() }) {
                     Text(
                         "اضغط مطولًا على الربط أو المراجعة لتعليم وجه تعثّرت فيه.",
@@ -95,6 +97,29 @@ fun HomeScreen(s: UiState, a: Actions, openCounter: () -> Unit) {
         }
     }
     marking?.let { step -> WeakPagesDialog(step, s.weak, a) { marking = null } }
+    val newPages = s.plan.newPages
+    if (newPages != null) {
+        page?.let { step ->
+            val listen = s.steps.firstOrNull { it.id == "listen" }
+            PageScreen(
+                pages = newPages,
+                reciter = s.settings.reciter,
+                showTafsir = step.kind == com.fisudur.app.StepKind.TAFSIR,
+                listened = if (listen != null && listen.id in s.progress.checked) listen.target else s.progress.tallies["listen"] ?: 0,
+                listenTarget = listen?.target ?: 0,
+                onListened = { if (listen != null) a.tally(listen.id) },
+                onClose = { page = null },
+            )
+        }
+        if (recordOpen) {
+            RecordDialog(
+                date = s.planDate,
+                inARow = if ("record" in s.progress.checked) com.fisudur.app.engine.PlanRules.RECORD_REPS else s.progress.tallies["record"] ?: 0,
+                onResult = a::recordResult,
+                onClose = { recordOpen = false },
+            )
+        }
+    }
     if (confirmFinish) {
         AlertDialog(
             onDismissRequest = { confirmFinish = false },
@@ -228,7 +253,14 @@ private fun TodayCard(s: UiState) {
 }
 
 @Composable
-private fun Timeline(s: UiState, a: Actions, openCounter: () -> Unit, onMark: (Step) -> Unit) {
+private fun Timeline(
+    s: UiState,
+    a: Actions,
+    openCounter: () -> Unit,
+    onMark: (Step) -> Unit,
+    onPage: (Step) -> Unit,
+    onRecord: () -> Unit,
+) {
     run {
         s.steps.forEachIndexed { i, step ->
             TimelineRow(
@@ -239,10 +271,14 @@ private fun Timeline(s: UiState, a: Actions, openCounter: () -> Unit, onMark: (S
                 counter = s.progress.counter,
                 tally = s.progress.tallies[step.id] ?: 0,
                 onOpen = {
-                    when (step.action) {
-                        StepAction.COUNTER -> openCounter()
-                        StepAction.TALLY -> a.tally(step.id)
-                        StepAction.CHECK -> a.toggle(step.id)
+                    when {
+                        // The new pages open inside the app: their ayat, tafsir and reciter.
+                        step.kind == com.fisudur.app.StepKind.TAFSIR || step.kind == com.fisudur.app.StepKind.LISTEN ||
+                            step.kind == com.fisudur.app.StepKind.MEMORIZE -> onPage(step)
+                        step.kind == com.fisudur.app.StepKind.RECORD -> onRecord()
+                        step.action == StepAction.COUNTER -> openCounter()
+                        step.action == StepAction.TALLY -> a.tally(step.id)
+                        else -> a.toggle(step.id)
                     }
                 },
                 // Repetition is checked only by the counter reaching its target.

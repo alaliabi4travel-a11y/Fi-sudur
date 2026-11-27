@@ -91,6 +91,11 @@ interface Actions {
     fun canEditDay(s: UiState, date: LocalDate): Boolean = false
     /** Changes a recorded past day: to an off day (with a reason or none), or null to remove the record. */
     fun editDay(date: LocalDate, kind: DayKind?, reason: String? = null) {}
+    /**
+     * The result of one recitation from memory, checked against the mushaf: one more in a row
+     * when it had no mistake; a mistake starts the count of the record step again.
+     */
+    fun recordResult(ok: Boolean) {}
     /** Records a past day that was never finished. */
     fun backfill(date: LocalDate, kind: DayKind, reason: String? = null) {}
     /** Whether a past day can still be recorded as a memorizing day (only the newest gap can). */
@@ -202,7 +207,7 @@ private fun stepsFor(plan: TodayPlan, weak: Map<Int, Int>): List<Step> {
         list += Step("tafsir", StepKind.TAFSIR, "اقرأ التفسير", it.label, it.surahs, "مرة واحدة، الميسّر أو المختصر")
         list += Step("listen", StepKind.LISTEN, "استمع إلى القارئ", it.label, it.surahs, "${PlanRules.LISTEN_REPS} مرات مع النظر في المصحف", StepAction.TALLY, PlanRules.LISTEN_REPS)
         list += Step("memorize", StepKind.MEMORIZE, "احفظ الورد", it.label, it.surahs, "حتى تقرأه غيبًا")
-        list += Step("record", StepKind.RECORD, "سجّل غيبًا لتأكيد الحفظ", it.label, it.surahs, "${PlanRules.RECORD_REPS} مرات متتالية بلا خطأ")
+        list += Step("record", StepKind.RECORD, "سجّل غيبًا لتأكيد الحفظ", it.label, it.surahs, "${PlanRules.RECORD_REPS} مرات متتالية بلا خطأ", StepAction.TALLY, PlanRules.RECORD_REPS)
         list += Step("repeat", StepKind.REPEAT, "كرّر لتثبيت الحفظ", it.label, it.surahs, "${plan.repetitions} مرة", StepAction.COUNTER, plan.repetitions)
     }
     plan.review?.let {

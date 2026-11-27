@@ -188,6 +188,11 @@ class AppViewModel(app: Application) : AndroidViewModel(app), Actions {
         update { p -> tallied(p, step) }
     }
 
+    override fun recordResult(ok: Boolean) {
+        val step = _state.value.steps.firstOrNull { it.id == "record" } ?: return
+        if (ok) tally(step.id) else update { p -> p.copy(tallies = p.tallies - step.id, checked = p.checked - step.id) }
+    }
+
     private fun updateNext(block: (DayProgress) -> DayProgress) {
         val t = _state.value.tomorrow ?: return
         val p = block(t.progress)

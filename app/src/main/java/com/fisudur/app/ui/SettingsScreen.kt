@@ -5,6 +5,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.outlined.NotificationsActive
@@ -150,6 +151,14 @@ fun SettingsScreen(s: UiState, a: Actions) {
                         )
                     }
                     Switch(checked = st.memorizedBefore, onCheckedChange = { a.saveSettings(st.copy(memorizedBefore = it)) })
+                }
+            }
+        }
+
+        Section(Icons.Outlined.Headphones, "القارئ", "تسمعه في خطوة الاستماع، والصوت من quran.com ويحتاج الإنترنت.") {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                com.fisudur.app.QuranApi.reciters.forEach { (id, name) ->
+                    Pill(name, st.reciter == id) { a.saveSettings(st.copy(reciter = id)) }
                 }
             }
         }

@@ -27,6 +27,8 @@ data class Settings(
     val memorizedBefore: Boolean = false,
     /** A folder (a document tree the person picked) where a copy is written every day; null = none. */
     val backupFolder: String? = null,
+    /** The reciter heard in the listening step (a quran.com recitation id). */
+    val reciter: Int = 7,
 ) {
     /** The first page held: 1 when the pages before the start were memorized earlier. */
     val firstKnown: Int get() = if (memorizedBefore) 1 else startPage
@@ -82,6 +84,7 @@ class Store(context: Context) {
             lateReminder = o.optBoolean("late", true),
             memorizedBefore = o.optBoolean("known", false),
             backupFolder = o.optString("folder", "").takeIf { it.isNotEmpty() },
+            reciter = o.optInt("reciter", 7),
         )
     }
 
@@ -97,6 +100,7 @@ class Store(context: Context) {
             .put("late", s.lateReminder)
             .put("known", s.memorizedBefore)
             .put("folder", s.backupFolder ?: "")
+            .put("reciter", s.reciter)
         prefs.edit().putString("settings", o.toString()).commit()
     }
 

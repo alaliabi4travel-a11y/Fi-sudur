@@ -77,6 +77,11 @@ class HapticActions(private val a: Actions, private val s: UiState, private val 
         a.saveSettings(new)
     }
     override fun startPlan(amount: Int, startPage: Int, dayEndMinutes: Int, memorizedBefore: Boolean) { h.success(); a.startPlan(amount, startPage, dayEndMinutes, memorizedBefore) }
+    override fun recordResult(ok: Boolean) {
+        val n = (s.progress.tallies["record"] ?: 0) + 1
+        if (!ok) h.undo() else if (n == com.fisudur.app.engine.PlanRules.RECORD_REPS) h.success() else h.confirm()
+        a.recordResult(ok)
+    }
     override fun postponeNew() { h.confirm(); a.postponeNew() }
     override fun toggleWeak(page: Int) { h.tick(); a.toggleWeak(page) }
     override fun editDay(date: LocalDate, kind: DayKind?, reason: String?) { if (kind == null) h.undo() else h.confirm(); a.editDay(date, kind, reason) }
